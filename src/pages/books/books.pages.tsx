@@ -1,6 +1,3 @@
-export default function BooksPage()  {
-  return (
-    <>
-    </>
-  )
+export default function BooksPage() {
+  return <></>;
 }
