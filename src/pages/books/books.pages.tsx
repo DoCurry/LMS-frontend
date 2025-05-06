@@ -1,6 +1,20 @@
 import { useState } from 'react';
 import { Heart, Search, ShoppingCart, Menu, X, ChevronDown, ChevronUp, Bookmark } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
+
+interface FilterFormData {
+  searchTerm: string;
+  genre: string[];
+  priceRange: {
+    min: number;
+    max: number;
+  };
+  ratings: string[];
+  language: string[];
+  format: string[];
+  publishers: string[];
+  sortBy: string;
+}
 
 interface Book {
   id: number;
@@ -61,287 +75,104 @@ const books = [
     physicalAccess: true,
     description: "A dazzling novel about all the choices that go into a life well lived.",
     popularity: 95
-  },
-  {
-    id: 2,
-    title: "Atomic Habits",
-    author: "James Clear",
-    price: 11.99,
-    coverImg: "/api/placeholder/200/300",
-    category: "Self-Help",
-    format: "Paperback",
-    rating: 4.8,
-    year: 2018
-  },
-  {
-    id: 3,
-    title: "Dune",
-    author: "Frank Herbert",
-    price: 9.99,
-    coverImg: "/api/placeholder/200/300",
-    category: "Sci-Fi",
-    format: "Paperback",
-    rating: 4.7,
-    year: 1965
-  },
-  {
-    id: 4,
-    title: "Project Hail Mary",
-    author: "Andy Weir",
-    price: 16.99,
-    coverImg: "/api/placeholder/200/300",
-    category: "Sci-Fi",
-    format: "Hardcover",
-    rating: 4.9,
-    year: 2021
-  },
-  {
-    id: 5,
-    title: "The Psychology of Money",
-    author: "Morgan Housel",
-    price: 13.99,
-    coverImg: "/api/placeholder/200/300",
-    category: "Finance",
-    format: "Paperback",
-    rating: 4.6,
-    year: 2020
-  },
-  {
-    id: 6,
-    title: "Educated",
-    author: "Tara Westover",
-    price: 12.99,
-    coverImg: "/api/placeholder/200/300",
-    category: "Memoir",
-    format: "Paperback",
-    rating: 4.7,
-    year: 2018
-  },
-  {
-    id: 7,
-    title: "The Silent Patient",
-    author: "Alex Michaelides",
-    price: 10.99,
-    coverImg: "/api/placeholder/200/300",
-    category: "Thriller",
-    format: "Paperback",
-    rating: 4.5,
-    year: 2019
-  },
-  {
-    id: 8,
-    title: "Where the Crawdads Sing",
-    author: "Delia Owens",
-    price: 14.99,
-    coverImg: "/api/placeholder/200/300",
-    category: "Fiction",
-    format: "Hardcover",
-    rating: 4.8,
-    year: 2018
   }
 ];
 
-// Filter categories
-const categories = ["Fiction", "Non-Fiction", "Self-Help", "Sci-Fi", "Thriller", "Memoir", "Finance", "History", "Biography"];
+// Filter options
+const genres = ["Fiction", "Non-Fiction", "Self-Help", "Sci-Fi", "Thriller", "Memoir", "Finance", "History", "Biography"];
+const formats = ["Hardcover", "Paperback", "E-Book", "Audiobook", "Signed Edition", "Limited Edition", "First Edition", "Collector's Edition", "Author's Edition", "Deluxe Edition"];
 const ratings = ["5 Stars", "4+ Stars", "3+ Stars"];
 const languages = ["English", "Spanish", "French", "German", "Chinese", "Japanese", "Russian"];
 const publishers = ["Penguin", "HarperCollins", "Random House", "Simon & Schuster", "Macmillan", "Hachette", "Viking"];
+const sortOptions = [
+  { value: "relevance", label: "Relevance" },
+  { value: "title", label: "Title" },
+  { value: "price-asc", label: "Price: Low to High" },
+  { value: "price-desc", label: "Price: High to Low" },
+  { value: "rating", label: "Highest Rated" },
+  { value: "newest", label: "Newest First" },
+  { value: "popularity", label: "Most Popular" }
+];
 
 export default function BookCatalog() {
-  const { register, handleSubmit, watch } = useForm();
-  const [favorites, setFavorites] = useState<number[]>([]);
-  const [bookmarks, setBookmarks] = useState<number[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortOption, setSortOption] = useState('relevance');
+  const { control, handleSubmit, watch } = useForm<FilterFormData>({
+    defaultValues: {
+      searchTerm: '',
+      genre: [],
+      priceRange: {
+        min: 0,
+        max: 100
+      },
+      ratings: [],
+      language: [],
+      format: [],
+      publishers: [],
+      sortBy: 'relevance'
+    }
+  });
+
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
-  const [expandedSections, setExpandedSections] = useState<ExpandedSections>({
-    categories: true,
-    formats: true,
-    ratings: true,
-    years: true,
-    languages: true,
-    publishers: true,
-    availability: true,
-    priceRange: true
-  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [bookmarkedBooks, setBookmarkedBooks] = useState<number[]>([]);
+  const itemsPerPage = 12;
 
-  // Filter states
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [selectedFormats, setSelectedFormats] = useState<string[]>([]);
-  const [selectedRatings, setSelectedRatings] = useState<string[]>([]);
-  const [selectedYears, setSelectedYears] = useState<string[]>([]);
-  const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
-  const [selectedPublishers, setSelectedPublishers] = useState<string[]>([]);
-  const [priceRange, setPriceRange] = useState<PriceRange>({ min: 0, max: 100 });
-  const [availability, setAvailability] = useState<Availability>({
-    inStock: true,
-    physicalAccess: true
-  });
-
-  const toggleBookmark = (id: number) => {
-    if (bookmarks.includes(id)) {
-      setBookmarks(bookmarks.filter(item => item !== id));
-    } else {
-      setBookmarks([...bookmarks, id]);
-    }
+  const onSubmit = (data: FilterFormData) => {
+    // Convert the form data into an array of key-value pairs
+    const filterData = Object.entries(data).map(([key, value]) => ({
+      key,
+      value
+    }));
+    console.log('Filter Data:', filterData);
   };
 
-  const onSubmit = (data: any) => {
-    console.log('Filter Data:', {
-      searchTerm,
-      sortOption,
-      selectedRatings,
-      selectedLanguages,
-      selectedPublishers,
-      priceRange,
-      availability,
-      ...data
+  // Calculate pagination
+  const totalPages = Math.ceil(books.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentBooks = books.slice(startIndex, endIndex);
+
+  const handleBookmark = (bookId: number) => {
+    setBookmarkedBooks(prev => {
+      if (prev.includes(bookId)) {
+        return prev.filter(id => id !== bookId);
+      } else {
+        return [...prev, bookId];
+      }
     });
+    console.log('Bookmark clicked for book ID:', bookId);
   };
-
-  const toggleFavorite = (id: number) => {
-    if (favorites.includes(id)) {
-      setFavorites(favorites.filter(item => item !== id));
-    } else {
-      setFavorites([...favorites, id]);
-    }
-  };
-
-  const toggleSection = (section: keyof ExpandedSections) => {
-    setExpandedSections({
-      ...expandedSections,
-      [section]: !expandedSections[section]
-    });
-  };
-
-
-  const toggleLanguage = (language: string) => {
-    if (selectedLanguages.includes(language)) {
-      setSelectedLanguages(selectedLanguages.filter(l => l !== language));
-    } else {
-      setSelectedLanguages([...selectedLanguages, language]);
-    }
-  };
-
-  const togglePublisher = (publisher: string) => {
-    if (selectedPublishers.includes(publisher)) {
-      setSelectedPublishers(selectedPublishers.filter(p => p !== publisher));
-    } else {
-      setSelectedPublishers([...selectedPublishers, publisher]);
-    }
-  };
-
-  // Filter and sort books
-  const filteredBooks = books.filter(book => {
-    // Search filter
-    if (searchTerm && !book.title.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      !book.author.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      !(book.description?.toLowerCase().includes(searchTerm.toLowerCase())) &&
-      !book.isbn?.includes(searchTerm)) {
-      return false;
-    }
-
-    // Category filter
-    if (selectedCategories.length > 0 && !selectedCategories.includes(book.category)) {
-      return false;
-    }
-
-    // Format filter
-    if (selectedFormats.length > 0 && !selectedFormats.includes(book.format)) {
-      return false;
-    }
-
-    // Rating filter
-    if (selectedRatings.length > 0) {
-      const passesRating = selectedRatings.some(rating => {
-        if (rating === '5 Stars') return book.rating === 5;
-        if (rating === '4+ Stars') return book.rating >= 4;
-        if (rating === '3+ Stars') return book.rating >= 3;
-        setSelectedRatings(selectedRatings);
-        return true;
-
-      });
-
-      if (!passesRating) return false;
-    }
-
-
-    // Language filter
-    if (selectedLanguages.length > 0 && book.language && !selectedLanguages.includes(book.language)) {
-      return false;
-    }
-
-    // Publisher filter
-    if (selectedPublishers.length > 0 && book.publisher && !selectedPublishers.includes(book.publisher)) {
-      return false;
-    }
-
-    // Price range filter
-    if (book.price < priceRange.min || book.price > priceRange.max) {
-      return false;
-    }
-
-    // Availability filter
-    if (availability.inStock && (book.stock ?? 0) <= 0) {
-      return false;
-    }
-    if (availability.physicalAccess && !book.physicalAccess) {
-      return false;
-    }
-
-    return true;
-  }).sort((a, b) => {
-    switch (sortOption) {
-      case 'price-asc':
-        return a.price - b.price;
-      case 'price-desc':
-        return b.price - a.price;
-      case 'rating':
-        return b.rating - a.rating;
-      case 'newest':
-        return b.year - a.year;
-      case 'title':
-        return a.title.localeCompare(b.title);
-      case 'popularity':
-        return (b.popularity ?? 0) - (a.popularity ?? 0);
-      default: // relevance
-        return 0;
-    }
-  });
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Subheader with Search */}
+      {/* Search Bar */}
       <div className="bg-gray-100 py-4">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="w-full md:max-w-xl relative">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search by title, author, ISBN, or description..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                <div className="absolute inset-y-0 left-0 flex items-center pl-3">
-                  <Search className="h-5 w-5 text-gray-400" />
-                </div>
-              </div>
-            </div>
-            <div className="flex gap-2">
+          <form onSubmit={handleSubmit(onSubmit)}>
+            <div className="flex gap-4">
+              <Controller
+                name="searchTerm"
+                control={control}
+                render={({ field }) => (
+                  <div className="flex-1">
+                    <div className="relative">
+                      <input
+                        {...field}
+                        type="text"
+                        placeholder="Search by title, author, ISBN, or description..."
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <div className="absolute inset-y-0 left-0 flex items-center pl-3">
+                        <Search className="h-5 w-5 text-gray-400" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              />
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                Apply Filters
-              </button>
-              <button
-                type="button"
-                onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
-                className="md:hidden px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500"
-              >
-                {mobileFiltersOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                Search
               </button>
             </div>
           </form>
@@ -350,202 +181,235 @@ export default function BookCatalog() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex flex-col md:flex-row">
-          {/* Sidebar Filters */}
-          <div className={`md:w-64 mb-6 md:mb-0 md:pr-6 ${mobileFiltersOpen ? 'block' : 'hidden md:block'}`}>
-            <div className="sticky top-4">
+        <div className="flex flex-col md:flex-row gap-6">
+          {/* Mobile filter button */}
+          <div className="md:hidden">
+            <button
+              onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
+              className="flex items-center justify-center w-full p-2 bg-blue-600 text-white rounded"
+            >
+              {mobileFiltersOpen ? <X className="h-5 w-5 mr-2" /> : <Menu className="h-5 w-5 mr-2" />}
+              {mobileFiltersOpen ? 'Close Filters' : 'Show Filters'}
+            </button>
+          </div>
+
+          {/* Filters Sidebar */}
+          <div className={`md:w-64 ${mobileFiltersOpen ? 'block' : 'hidden md:block'}`}>
+            <div className="sticky top-4 space-y-4">
               <h2 className="text-lg font-medium mb-4">Filters</h2>
-              <div className="space-y-4">
-                {/* Price Range */}
-                <div className="border border-gray-200 rounded-md p-3 bg-white">
-                  <div
-                    className="flex justify-between items-center cursor-pointer mb-2"
-                    onClick={() => toggleSection('priceRange')}
-                  >
-                    <h3 className="text-md font-medium">Price Range</h3>
-                    {expandedSections.priceRange ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </div>
-                  {expandedSections.priceRange && (
+              
+              {/* Genre Filter */}
+              <div className="border border-gray-200 rounded-md p-3 bg-white">
+                <h3 className="text-md font-medium mb-2">Genre</h3>
+                <Controller
+                  name="genre"
+                  control={control}
+                  render={({ field }) => (
                     <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          min="0"
-                          max="1000"
-                          value={priceRange.min}
-                          onChange={(e) => setPriceRange({ ...priceRange, min: Number(e.target.value) })}
-                          className="w-20 px-2 py-1 border border-gray-300 rounded"
-                        />
-                        <span>to</span>
-                        <input
-                          type="number"
-                          min="0"
-                          max="1000"
-                          value={priceRange.max}
-                          onChange={(e) => setPriceRange({ ...priceRange, max: Number(e.target.value) })}
-                          className="w-20 px-2 py-1 border border-gray-300 rounded"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Availability */}
-                <div className="border border-gray-200 rounded-md p-3 bg-white">
-                  <div
-                    className="flex justify-between items-center cursor-pointer mb-2"
-                    onClick={() => toggleSection('availability')}
-                  >
-                    <h3 className="text-md font-medium">Availability</h3>
-                    {expandedSections.availability ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </div>
-                  {expandedSections.availability && (
-                    <div className="space-y-2">
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          id="inStock"
-                          checked={availability.inStock}
-                          onChange={(e) => setAvailability({ ...availability, inStock: e.target.checked })}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                        <label htmlFor="inStock" className="ml-2 text-sm text-gray-700">
-                          In Stock
-                        </label>
-                      </div>
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          id="physicalAccess"
-                          checked={availability.physicalAccess}
-                          onChange={(e) => setAvailability({ ...availability, physicalAccess: e.target.checked })}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                        <label htmlFor="physicalAccess" className="ml-2 text-sm text-gray-700">
-                          Physical Library Access
-                        </label>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Languages */}
-                <div className="border border-gray-200 rounded-md p-3 bg-white">
-                  <div
-                    className="flex justify-between items-center cursor-pointer mb-2"
-                    onClick={() => toggleSection('languages')}
-                  >
-                    <h3 className="text-md font-medium">Languages</h3>
-                    {expandedSections.languages ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </div>
-                  {expandedSections.languages && (
-                    <div className="space-y-2">
-                      {languages.map((language) => (
-                        <div key={language} className="flex items-center">
+                      {genres.map((genre) => (
+                        <div key={genre} className="flex items-center">
                           <input
                             type="checkbox"
-                            id={`language-${language}`}
-                            checked={selectedLanguages.includes(language)}
-                            onChange={() => toggleLanguage(language)}
+                            id={`genre-${genre}`}
+                            checked={field.value.includes(genre)}
+                            onChange={(e) => {
+                              const newValue = e.target.checked
+                                ? [...field.value, genre]
+                                : field.value.filter(g => g !== genre);
+                              field.onChange(newValue);
+                            }}
                             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                           />
-                          <label htmlFor={`language-${language}`} className="ml-2 text-sm text-gray-700">
-                            {language}
+                          <label htmlFor={`genre-${genre}`} className="ml-2 text-sm text-gray-700">
+                            {genre}
                           </label>
                         </div>
                       ))}
                     </div>
                   )}
-                </div>
-                {/* Rating */}
-                <div className="border border-gray-200 rounded-md p-3 bg-white">
-                  <div
-                    className="flex justify-between items-center cursor-pointer mb-2"
-                    onClick={() => toggleSection('languages')}
-                  >
-                    <h3 className="text-md font-medium">Ratings</h3>
-                    {expandedSections.ratings ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </div>
-                  {expandedSections.ratings && (
+                />
+              </div>
+
+              {/* Format Filter */}
+              <div className="border border-gray-200 rounded-md p-3 bg-white">
+                <h3 className="text-md font-medium mb-2">Format</h3>
+                <Controller
+                  name="format"
+                  control={control}
+                  render={({ field }) => (
                     <div className="space-y-2">
-                      {ratings.map((rating) => (
-                        <div key={rating} className="flex items-center">
+                      {formats.map((format) => (
+                        <div key={format} className="flex items-center">
                           <input
                             type="checkbox"
-                            id={`language-${rating}`}
-                            checked={selectedLanguages.includes(rating)}
-                            onChange={() => toggleLanguage(rating)}
+                            id={`format-${format}`}
+                            checked={field.value.includes(format)}
+                            onChange={(e) => {
+                              const newValue = e.target.checked
+                                ? [...field.value, format]
+                                : field.value.filter(f => f !== format);
+                              field.onChange(newValue);
+                            }}
                             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                           />
-                          <label htmlFor={`language-${rating}`} className="ml-2 text-sm text-gray-700">
-                            {rating}
+                          <label htmlFor={`format-${format}`} className="ml-2 text-sm text-gray-700">
+                            {format}
                           </label>
                         </div>
                       ))}
                     </div>
                   )}
-                </div>
+                />
+              </div>
 
-                {/* Publishers */}
-                <div className="border border-gray-200 rounded-md p-3 bg-white">
-                  <div
-                    className="flex justify-between items-center cursor-pointer mb-2"
-                    onClick={() => toggleSection('publishers')}
-                  >
-                    <h3 className="text-md font-medium">Publishers</h3>
-                    {expandedSections.publishers ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </div>
-                  {expandedSections.publishers && (
-                    <div className="space-y-2">
-                      {publishers.map((publisher) => (
-                        <div key={publisher} className="flex items-center">
+              {/* Price Range */}
+              <div className="border-b border-gray-200 pb-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Price Range</h3>
+                <div className="flex items-center space-x-4">
+                  <Controller
+                    name="priceRange.min"
+                    control={control}
+                    render={({ field }) => (
+                      <input
+                        type="number"
+                        {...field}
+                        min="0"
+                        className="w-24 px-3 py-2 border border-gray-300 rounded-md"
+                        placeholder="Min"
+                      />
+                    )}
+                  />
+                  <span className="text-gray-500">to</span>
+                  <Controller
+                    name="priceRange.max"
+                    control={control}
+                    render={({ field }) => (
+                      <input
+                        type="number"
+                        {...field}
+                        min="0"
+                        className="w-24 px-3 py-2 border border-gray-300 rounded-md"
+                        placeholder="Max"
+                      />
+                    )}
+                  />
+                </div>
+              </div>
+
+              {/* Language Filter */}
+              <div className="border-b border-gray-200 pb-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Language</h3>
+                <div className="space-y-2">
+                  {['English', 'Spanish', 'French', 'German', 'Chinese', 'Japanese'].map((lang) => (
+                    <div key={lang} className="flex items-center">
+                      <Controller
+                        name="language"
+                        control={control}
+                        render={({ field }) => (
                           <input
                             type="checkbox"
-                            id={`publisher-${publisher}`}
-                            checked={selectedPublishers.includes(publisher)}
-                            onChange={() => togglePublisher(publisher)}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            checked={field.value.includes(lang)}
+                            onChange={(e) => {
+                              const newValue = e.target.checked
+                                ? [...field.value, lang]
+                                : field.value.filter((l) => l !== lang);
+                              field.onChange(newValue);
+                            }}
+                            className="h-4 w-4 text-blue-600 rounded border-gray-300"
                           />
-                          <label htmlFor={`publisher-${publisher}`} className="ml-2 text-sm text-gray-700">
-                            {publisher}
-                          </label>
-                        </div>
-                      ))}
+                        )}
+                      />
+                      <label className="ml-2 text-sm text-gray-600">{lang}</label>
                     </div>
-                  )}
+                  ))}
                 </div>
+              </div>
 
-                {/* Existing filter sections */}
-                {/* ... Categories, Formats, Ratings, Years sections ... */}
+              {/* Ratings Filter */}
+              <div className="border-b border-gray-200 pb-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Ratings</h3>
+                <div className="space-y-2">
+                  {['5 Stars', '4 Stars & Up', '3 Stars & Up', '2 Stars & Up', '1 Star & Up'].map((rating) => (
+                    <div key={rating} className="flex items-center">
+                      <Controller
+                        name="ratings"
+                        control={control}
+                        render={({ field }) => (
+                          <input
+                            type="checkbox"
+                            checked={field.value.includes(rating)}
+                            onChange={(e) => {
+                              const newValue = e.target.checked
+                                ? [...field.value, rating]
+                                : field.value.filter((r) => r !== rating);
+                              field.onChange(newValue);
+                            }}
+                            className="h-4 w-4 text-blue-600 rounded border-gray-300"
+                          />
+                        )}
+                      />
+                      <label className="ml-2 text-sm text-gray-600">{rating}</label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Publishers Filter */}
+              <div className="border-b border-gray-200 pb-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Publishers</h3>
+                <div className="space-y-2">
+                  {['Penguin', 'HarperCollins', 'Random House', 'Simon & Schuster', 'Macmillan', 'Hachette'].map((publisher) => (
+                    <div key={publisher} className="flex items-center">
+                      <Controller
+                        name="publishers"
+                        control={control}
+                        render={({ field }) => (
+                          <input
+                            type="checkbox"
+                            checked={field.value.includes(publisher)}
+                            onChange={(e) => {
+                              const newValue = e.target.checked
+                                ? [...field.value, publisher]
+                                : field.value.filter((p) => p !== publisher);
+                              field.onChange(newValue);
+                            }}
+                            className="h-4 w-4 text-blue-600 rounded border-gray-300"
+                          />
+                        )}
+                      />
+                      <label className="ml-2 text-sm text-gray-600">{publisher}</label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Sort Options */}
+              <div className="border border-gray-200 rounded-md p-3 bg-white">
+                <h3 className="text-md font-medium mb-2">Sort By</h3>
+                <Controller
+                  name="sortBy"
+                  control={control}
+                  render={({ field }) => (
+                    <select
+                      {...field}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {sortOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                />
               </div>
             </div>
           </div>
 
-          {/* Main Content */}
+          {/* Book Grid */}
           <div className="flex-1">
-            <div className="flex justify-between items-center mb-6">
-              <h1 className="text-2xl font-bold">Books</h1>
-              <div className="flex items-center">
-                <span className="mr-2 text-sm hidden md:inline">Sort By</span>
-                <select
-                  className="border border-gray-300 rounded-md p-2 text-sm"
-                  value={sortOption}
-                  onChange={(e) => setSortOption(e.target.value)}
-                >
-                  <option value="relevance">Relevance</option>
-                  <option value="title">Title</option>
-                  <option value="price-asc">Price: Low to High</option>
-                  <option value="price-desc">Price: High to Low</option>
-                  <option value="rating">Highest Rated</option>
-                  <option value="newest">Newest First</option>
-                  <option value="popularity">Most Popular</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Book Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredBooks.map((book) => (
+              {currentBooks.map((book) => (
                 <div key={book.id} className="bg-white rounded-lg shadow overflow-hidden hover:shadow-lg transition-shadow duration-300">
                   <div className="relative">
                     <img
@@ -553,21 +417,17 @@ export default function BookCatalog() {
                       alt={book.title}
                       className="w-full h-64 object-cover"
                     />
-                    <div className="absolute top-2 right-2 flex gap-2">
+                    <div className="absolute top-2 right-2">
                       <button
                         className="p-1 bg-white rounded-full shadow hover:bg-gray-100"
-                        onClick={() => toggleFavorite(book.id)}
+                        onClick={() => handleBookmark(book.id)}
                       >
-                        <Heart
-                          className={`h-5 w-5 ${favorites.includes(book.id) ? 'text-red-500 fill-red-500' : 'text-gray-400'}`}
-                        />
-                      </button>
-                      <button
-                        className="p-1 bg-white rounded-full shadow hover:bg-gray-100"
-                        onClick={() => toggleBookmark(book.id)}
-                      >
-                        <Bookmark
-                          className={`h-5 w-5 ${bookmarks.includes(book.id) ? 'text-blue-500 fill-blue-500' : 'text-gray-400'}`}
+                        <Bookmark 
+                          className={`h-5 w-5 ${
+                            bookmarkedBooks.includes(book.id) 
+                              ? 'text-blue-600 fill-blue-600' 
+                              : 'text-gray-400'
+                          }`} 
                         />
                       </button>
                     </div>
@@ -601,13 +461,38 @@ export default function BookCatalog() {
               ))}
             </div>
 
-            {/* Empty state */}
-            {filteredBooks.length === 0 && (
-              <div className="text-center py-12">
-                <p className="text-lg text-gray-600">No books found matching your filters.</p>
-                <p className="mt-2 text-sm text-gray-500">Try adjusting your search or filter criteria.</p>
-              </div>
-            )}
+            {/* Pagination */}
+            <div className="mt-8 flex justify-center">
+              <nav className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                {[...Array(totalPages)].map((_, index) => (
+                  <button
+                    key={index + 1}
+                    onClick={() => setCurrentPage(index + 1)}
+                    className={`px-3 py-1 rounded ${
+                      currentPage === index + 1
+                        ? 'bg-blue-600 text-white'
+                        : 'border border-gray-300'
+                    }`}
+                  >
+                    {index + 1}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </nav>
+            </div>
           </div>
         </div>
       </main>

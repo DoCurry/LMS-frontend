@@ -7,6 +7,7 @@ import ErrorPage from "../pages/error/error.pages"
 import AdminDashboardPage from "../pages/admin-dashboard/admin-dashboard.pages"
 import HomePage from "../pages/home/home.pages"
 import BooksPage from "../pages/books/books.pages"
+import BookmarksPage from "@/pages/bookmarks/bookmarks.pages"
 
 
 function RoutingConfig() {
@@ -24,6 +25,7 @@ function RoutingConfig() {
                     <Route path="/" element={<HomeLayout />}>
                         <Route index element={<HomePage />}></Route>
                         <Route path="books" element={<BooksPage />}></Route>
+                        <Route path="bookmarks" element={<BookmarksPage />}></Route>
                         <Route path="*" element={<ErrorPage title="Back to Homepage" link="/" />}></Route>
                     </Route>
 
