@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Heart, Search, ShoppingCart, Menu, X, ChevronDown, ChevronUp, Bookmark } from 'lucide-react';
 import { useForm, Controller } from 'react-hook-form';
@@ -197,7 +198,7 @@ export default function BookCatalog() {
           <div className={`md:w-64 ${mobileFiltersOpen ? 'block' : 'hidden md:block'}`}>
             <div className="sticky top-4 space-y-4">
               <h2 className="text-lg font-medium mb-4">Filters</h2>
-              
+
               {/* Genre Filter */}
               <div className="border border-gray-200 rounded-md p-3 bg-white">
                 <h3 className="text-md font-medium mb-2">Genre</h3>
@@ -422,12 +423,11 @@ export default function BookCatalog() {
                         className="p-1 bg-white rounded-full shadow hover:bg-gray-100"
                         onClick={() => handleBookmark(book.id)}
                       >
-                        <Bookmark 
-                          className={`h-5 w-5 ${
-                            bookmarkedBooks.includes(book.id) 
-                              ? 'text-blue-600 fill-blue-600' 
+                        <Bookmark
+                          className={`h-5 w-5 ${bookmarkedBooks.includes(book.id)
+                              ? 'text-blue-600 fill-blue-600'
                               : 'text-gray-400'
-                          }`} 
+                            }`}
                         />
                       </button>
                     </div>
@@ -475,11 +475,10 @@ export default function BookCatalog() {
                   <button
                     key={index + 1}
                     onClick={() => setCurrentPage(index + 1)}
-                    className={`px-3 py-1 rounded ${
-                      currentPage === index + 1
+                    className={`px-3 py-1 rounded ${currentPage === index + 1
                         ? 'bg-blue-600 text-white'
                         : 'border border-gray-300'
-                    }`}
+                      }`}
                   >
                     {index + 1}
                   </button>
