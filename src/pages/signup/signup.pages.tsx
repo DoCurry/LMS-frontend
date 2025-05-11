@@ -6,21 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 function Signup() {
-    const { register, handleSubmit, formState: { errors }, watch } = useForm({
-        defaultValues: {
-            name: '',
-            email: '',
-            password: '',
-            confirmPassword: ''
-        }
-    });
-
-    const password = watch('password');
+    const { register, handleSubmit, formState: { errors }, watch } = useForm();
 
     const onSubmit = (data) => {
         console.log('Signup data:', data);
         alert('Signup successful! (Frontend-only demo)');
     };
+
+    const password = watch('password');
 
     return (
         <div className="flex items-center justify-center min-h-screen w-full bg-gray-50">
@@ -96,16 +89,17 @@ function Signup() {
                             {errors.confirmPassword && <p className="text-red-500 text-sm">{errors.confirmPassword.message}</p>}
                         </div>
 
+                        {/* Blue Sign Up Button */}
                         <Button 
                             type="submit"
-                            className="w-full h-10 bg-green-600 hover:bg-green-700 text-white rounded-md"
+                            className="w-full h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
                         >
                             Sign Up
                         </Button>
 
                         <div className="text-center text-sm mt-4">
                             Already have an account?{' '}
-                            <Link to="/login" className="text-blue-500 hover:underline">
+                            <Link to="/signin" className="text-blue-500 hover:underline">
                                 Login here
                             </Link>
                         </div>

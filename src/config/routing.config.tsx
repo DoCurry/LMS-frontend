@@ -6,18 +6,29 @@ import AdminLayout from "../pages/layout/admin.layout";
 import ErrorPage from "../pages/error/error.pages";
 import HomePage from "../pages/home/home.pages";
 import BooksPage from "../pages/books/books.pages";
+import AdminLogin from "../pages/admin-dashboard/admin-login.pages"
 import BookDetailsPage from "../pages/books/book-details.pages";
 import AdminBooksPage from "../pages/admin/books/admin-books.pages";
+import { CartPage } from "@/components/Carts/CartPage"
+import ForgetPasswordPage from '@/components/ForgetPasswordPage';
+import StaffPickupPage from '@/components/StaffPickupPage';
+
 
 function RoutingConfig() {
   return (
     <>
+
       <BrowserRouter>
+
+
         <Routes>
           <Route path="/signin" element={<SigninPage />}></Route>
           <Route path="/signup" element={<SignupPage />}></Route>
+          <Route path="admin-login" element={<AdminLogin />}></Route>
+          <Route path="/forget-password" element={<ForgetPasswordPage />} />
+          <Route path="/claim" element={<StaffPickupPage />} />
 
-          <Route path="/books" element={<HomeLayout />}>
+          <Route path="/cart" element={<CartPage />}></Route>          <Route path="/books" element={<HomeLayout />}>
             <Route index element={<HomePage />}></Route>
             <Route path="books" element={<BooksPage />}></Route>
             <Route path="book-details" element={<BookDetailsPage />}></Route>
