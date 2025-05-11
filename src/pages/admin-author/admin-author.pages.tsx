@@ -53,18 +53,6 @@ const AuthorManagement = () => {
     const [isCreating, setIsCreating] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
 
-    // Handle form input changes
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-
-        // Clear error when user types
-        if (errors[name as keyof CreateAuthorDto]) {
-            setErrors(prev => ({ ...prev, [name]: undefined }));
-        }
-    };
-
-    // Handle form submission
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -82,6 +70,9 @@ const AuthorManagement = () => {
         setErrors(newErrors);
 
         if (Object.keys(newErrors).length === 0) {
+            // Print form data to console before processing
+            console.log('Form submitted with data:', formData);
+
             const newAuthor: AuthorDto = {
                 id: crypto.randomUUID(),
                 name: formData.name,
@@ -94,6 +85,17 @@ const AuthorManagement = () => {
             setAuthors(prev => [...prev, newAuthor]);
             setFormData({ name: '', email: '' });
             setIsCreating(false);
+        }
+    };
+
+    // Handle form input changes
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+
+        // Clear error when user types
+        if (errors[name as keyof CreateAuthorDto]) {
+            setErrors(prev => ({ ...prev, [name]: undefined }));
         }
     };
 

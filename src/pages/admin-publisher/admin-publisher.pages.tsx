@@ -123,10 +123,14 @@ const PublisherManagement = () => {
     };
 
     // Handle create form submission
+    // Handle create form submission
     const handleCreateSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
         if (validateCreateForm()) {
+            // Print create form data to console
+            console.log('Create form submitted with data:', createFormData);
+
             const newPublisher: PublisherDto = {
                 id: crypto.randomUUID(),
                 name: createFormData.name,
@@ -147,6 +151,9 @@ const PublisherManagement = () => {
         e.preventDefault();
 
         if (validateUpdateForm() && isEditing) {
+            // Print update form data to console along with publisher ID
+            console.log('Update form submitted for publisher ID:', isEditing, 'with data:', updateFormData);
+
             setPublishers(prev => prev.map(publisher => {
                 if (publisher.id === isEditing) {
                     return {
@@ -166,6 +173,8 @@ const PublisherManagement = () => {
 
     // Delete a publisher
     const handleDelete = (id: string) => {
+        // Print delete action to console
+        console.log('Deleting publisher with ID:', id);
         setPublishers(prev => prev.filter(publisher => publisher.id !== id));
     };
 

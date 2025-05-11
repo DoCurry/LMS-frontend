@@ -186,6 +186,13 @@ const AnnouncementManagement = () => {
         e.preventDefault();
 
         if (validateCreateForm()) {
+            // Log create form data to console
+            console.log('Creating announcement with data:', {
+                ...createFormData,
+                startDate: createFormData.startDate.toISOString(),
+                endDate: createFormData.endDate.toISOString()
+            });
+
             const newAnnouncement: AnnouncementDto = {
                 id: crypto.randomUUID(),
                 title: createFormData.title,
@@ -215,6 +222,13 @@ const AnnouncementManagement = () => {
         e.preventDefault();
 
         if (validateUpdateForm() && isEditing) {
+            // Log update form data to console
+            console.log('Updating announcement ID:', isEditing, 'with data:', {
+                ...updateFormData,
+                startDate: updateFormData.startDate?.toISOString(),
+                endDate: updateFormData.endDate?.toISOString()
+            });
+
             setAnnouncements(prev => prev.map(announcement => {
                 if (announcement.id === isEditing) {
                     const updatedData = {
@@ -255,6 +269,8 @@ const AnnouncementManagement = () => {
 
     // Delete an announcement
     const handleDelete = (id: string) => {
+        // Log delete action to console
+        console.log('Deleting announcement with ID:', id);
         setAnnouncements(prev => prev.filter(announcement => announcement.id !== id));
     };
 
