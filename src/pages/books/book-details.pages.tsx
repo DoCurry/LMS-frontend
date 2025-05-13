@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { useForm } from "react-hook-form";
 import toast from 'react-hot-toast';
-import { bookAPI, reviewAPI, userAPI } from "@/api/api";
+import { MinusIcon, PlusIcon } from 'lucide-react';
+import { bookAPI, reviewAPI, userAPI, cartAPI } from "@/api/api";
 import { BookDto } from "@/models/book.model";
 import { ReviewDto, CreateReviewDto } from "@/models/review.model";
 import { Button } from "@/components/ui/button";
@@ -20,12 +21,16 @@ import { getFormatName, getLanguageName, getGenreName } from "@/models/enums";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function BookDetailsPage() {
-  const { slug } = useParams<{ slug: string }>();  const { isAuthenticated, user } = useAuth();
+  const { slug } = useParams<{ slug: string }>();  
+  const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [book, setBook] = useState<BookDto | null>(null);
   const [reviews, setReviews] = useState<ReviewDto[]>([]);
   const [orderQty, setOrderQty] = useState(1);
-  const [userReview, setUserReview] = useState<ReviewDto | null>(null);  const [addingReview, setAddingReview] = useState(false);
+  const [addingToCart, setAddingToCart] = useState(false);
+  const [userReview, setUserReview] = useState<ReviewDto | null>(null);  
+  const [addingReview, setAddingReview] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
 
@@ -99,15 +104,71 @@ export default function BookDetailsPage() {
     if (!isAuthenticated || !book) return;
     
     try {
-      setBookmarkLoading(true);
-      await userAPI.toggleBookmark(book.id);
-      setIsBookmarked(prev => !prev);
-      toast.success(prev => prev ? 'Book removed from bookmarks' : 'Book added to bookmarks');
+      setBookmarkLoading(true);      
+      const response = await userAPI.toggleBookmark(book.id);
+      setIsBookmarked(response.data.data);
+      toast.success(response.data.message);
     } catch (error) {
       console.error('Error toggling bookmark:', error);
       toast.error('Failed to update bookmark');
     } finally {
       setBookmarkLoading(false);
+    }
+  };
+
+  // Validate and set order quantity
+  const handleQuantityChange = (value: string) => {
+    const qty = parseInt(value);
+    if (isNaN(qty)) return;
+    
+    if (book) {
+      // Ensure quantity is between 1 and stock quantity
+      const validatedQty = Math.max(1, Math.min(qty, book.stockQuantity));
+      if (validatedQty !== qty) {
+        toast.error(`Quantity must be between 1 and ${book.stockQuantity}`);
+      }
+      setOrderQty(validatedQty);
+    }
+  };
+
+  const handleAddToCart = async () => {
+    if (!isAuthenticated) {
+      toast.error('Please login to add items to cart');
+      return;
+    }
+    
+    if (!book) return;
+
+    if (book.stockQuantity === 0) {
+      toast.error('This book is out of stock');
+      return;
+    }
+
+    if (orderQty > book.stockQuantity) {
+      toast.error('Not enough stock available');
+      setOrderQty(book.stockQuantity);
+      return;
+    }
+
+    try {
+      setAddingToCart(true);
+      await cartAPI.addItem({
+        bookId: book.id,
+        quantity: orderQty
+      });
+      toast.success('Added to cart successfully');
+      setOrderQty(1); // Reset quantity after success
+    } catch (error: any) {
+      if (error.response?.status === 400 && error.response?.data?.message) {
+        toast.error(error.response.data.message);
+      } else if (error.response?.status === 409) {
+        toast.error('This book is already in your cart');
+      } else {
+        toast.error('Failed to add to cart');
+        console.error('Error adding to cart:', error);
+      }
+    } finally {
+      setAddingToCart(false);
     }
   };
 
@@ -178,7 +239,8 @@ export default function BookDetailsPage() {
         <div>
           <div className="flex items-start justify-between gap-4 mb-4">
             <h1 className="text-3xl font-bold text-gray-900">{book.title}</h1>
-            <div className="flex items-center gap-2">              <Rating rating={book.averageRating} size="lg" />
+            <div className="flex items-center gap-2">              
+              <Rating rating={book.averageRating} size="lg" />
               <span className="text-sm text-gray-500">({book.reviewCount})</span>
             </div>
           </div>
@@ -224,15 +286,36 @@ export default function BookDetailsPage() {
           <div className="mb-6">
             <Label htmlFor="quantity">Quantity</Label>
             <div className="flex items-center gap-4 mt-1">
-              <Input
-                id="quantity"
-                type="number"
-                value={orderQty}
-                min={1}
-                max={book.stockQuantity}
-                onChange={(e) => setOrderQty(parseInt(e.target.value))}
-                className="w-24"
-              />
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => handleQuantityChange((orderQty - 1).toString())}
+                  disabled={orderQty <= 1 || book.stockQuantity === 0}
+                >
+                  <MinusIcon className="h-4 w-4" />
+                </Button>
+                <Input
+                  id="quantity"
+                  type="number"
+                  value={orderQty}
+                  min={1}
+                  max={book.stockQuantity}
+                  onChange={(e) => handleQuantityChange(e.target.value)}
+                  className="w-16 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  disabled={book.stockQuantity === 0}
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => handleQuantityChange((orderQty + 1).toString())}
+                  disabled={orderQty >= book.stockQuantity || book.stockQuantity === 0}
+                >
+                  <PlusIcon className="h-4 w-4" />
+                </Button>
+              </div>
               <p className="text-sm text-gray-500">
                 {book.stockQuantity === 0 ? (
                   <span className="text-red-500">Out of Stock</span>
@@ -252,24 +335,30 @@ export default function BookDetailsPage() {
           <div className="flex gap-4 mb-6">
             <Button 
               variant="default" 
-              disabled={book.stockQuantity === 0}
-              onClick={() => {
-                // TODO: Implement add to cart
-                toast.success(`Added ${orderQty} ${orderQty > 1 ? 'copies' : 'copy'} to cart`);
-              }}
+              className="bg-blue-600 hover:bg-blue-700"
+              disabled={book.stockQuantity === 0 || addingToCart}
+              onClick={handleAddToCart}
             >
-              Add to Cart
+              {addingToCart ? (
+                <>
+                  <span className="mr-2">Adding to Cart...</span>
+                  <span className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                </>
+              ) : (
+                'Add to Cart'
+              )}
             </Button>
             <Button 
               variant="outline"
               disabled={book.stockQuantity === 0}
               onClick={() => {
-                // TODO: Implement buy now
-                toast.success('Redirecting to checkout...');
+                handleAddToCart();
+                navigate('/cart');
               }}
             >
               Buy Now
-            </Button>            {isAuthenticated && (
+            </Button>            
+            {isAuthenticated && (
               <Button
                 variant="ghost"
                 className={`${isBookmarked ? 'text-blue-600 hover:text-blue-700' : 'text-gray-600 hover:text-gray-700'}`}
@@ -375,7 +464,8 @@ export default function BookDetailsPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={async () => {                        try {
+                      onClick={async () => {                        
+                        try {
                           await reviewAPI.delete(review.id);
                           setReviews(prev => prev.filter(r => r.id !== review.id));
                           setUserReview(null); // This resets the user review state

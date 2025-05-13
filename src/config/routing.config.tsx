@@ -8,6 +8,7 @@ import HomePage from "../pages/home/home.pages";
 import BooksPage from "../pages/books/books.pages";
 import BookDetailsPage from "../pages/books/book-details.pages";
 import BookmarksPage from "../pages/bookmarks/bookmarks.pages";
+import CartPage from "../pages/cart/cart.pages";
 import AdminBooksPage from "../pages/admin/books/admin-books.pages";
 import AdminDashboardPage from "@/pages/admin/dashboard/admin-dashboard.pages";
 import AuthorManagement from "@/pages/admin/author/admin-author.pages";
@@ -19,7 +20,8 @@ import StaffPickupPage from '@/components/StaffPickupPage';
 import { PrivateRoute } from "@/components/auth/PrivateRoute";
 import { PublicOnlyRoute } from "@/components/auth/PublicOnlyRoute";
 import UserProfilePage from "@/pages/user/profile.pages";
-import UserOrdersPage from "@/pages/user/orders.pages";
+import UserOrdersPage from "@/pages/orders/orders.pages";
+import OrderDetailsPage from "@/pages/orders/order-details.pages";
 
 
 function RoutingConfig() {
@@ -39,9 +41,11 @@ function RoutingConfig() {
 
         {/* Protected User Routes */}
         <Route path="/" element={<PrivateRoute element={<HomeLayout />} />}>
-          <Route path="bookmarks" element={<BookmarksPage />} />
+        <Route path="bookmarks" element={<BookmarksPage />} />
+          <Route path="cart" element={<CartPage />} />
           <Route path="profile" element={<UserProfilePage />} />
           <Route path="orders" element={<UserOrdersPage />} />
+          <Route path="orders/:orderId" element={<OrderDetailsPage />} />
         </Route>
 
         {/* Admin Routes */}
