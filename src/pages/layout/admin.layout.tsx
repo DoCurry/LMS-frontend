@@ -5,8 +5,11 @@ export default function AdminLayout() {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    localStorage.removeItem("adminToken");
-    navigate("/signin");
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("isAdmin");
+    localStorage.removeItem("user");
+    navigate("/login");
   };
 
   return (
@@ -25,23 +28,23 @@ export default function AdminLayout() {
           <Button
             variant="ghost"
             className="w-full justify-start"
-            onClick={() => navigate("/admin/page2")}
+            onClick={() => navigate("/admin/admin-author")}
           >
-            Page 2
+            author
           </Button>
           <Button
             variant="ghost"
             className="w-full justify-start"
-            onClick={() => navigate("/admin/page3")}
+            onClick={() => navigate("/admin/admin-publisher")}
           >
-            Page 3
+            publisher
           </Button>
           <Button
             variant="ghost"
             className="w-full justify-start"
-            onClick={() => navigate("/admin/page4")}
+            onClick={() => navigate("/admin/admin-announcement")}
           >
-            Page 4
+            announcement
           </Button>
         </nav>
         <div className="mt-8">

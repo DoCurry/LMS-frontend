@@ -1,4 +1,4 @@
-import { AnnouncementType } from './enums';
+import { AnnouncementType } from "./enums";
 
 export interface AnnouncementDto {
   id: string;

@@ -1,77 +1,16 @@
-import { useState } from 'react';
-import { Plus, Edit, Trash2, X, Calendar, AlertTriangle, Info, Megaphone, Check, ChevronDown } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Edit, Trash2, X, Calendar, AlertTriangle, Info, Megaphone, Check } from 'lucide-react';
 
-enum AnnouncementType {
-    Information = 'Information',
-    Warning = 'Warning',
-    Critical = 'Critical'
-}
+import { AnnouncementDto, CreateAnnouncementDto, UpdateAnnouncementDto } from '@/models/announcement.model';
+import { announcementAPI } from '@/api/api';
+import { AnnouncementType } from '@/models';
 
-interface AnnouncementDto {
-    id: string;
-    title: string;
-    content: string;
-    startDate: Date;
-    endDate: Date;
-    type: AnnouncementType;
-    isActive: boolean;
-    createdAt: Date;
-    lastUpdated?: Date;
-}
 
-interface CreateAnnouncementDto {
-    title: string;
-    content: string;
-    startDate: Date;
-    endDate: Date;
-    type: AnnouncementType;
-}
-
-interface UpdateAnnouncementDto {
-    title?: string;
-    content?: string;
-    startDate?: Date;
-    endDate?: Date;
-    type?: AnnouncementType;
-    isActive?: boolean;
-}
 
 const AnnouncementManagement = () => {
-    // Sample data
-    const [announcements, setAnnouncements] = useState<AnnouncementDto[]>([
-        {
-            id: '1',
-            title: 'System Maintenance',
-            content: 'The system will be down for maintenance on Friday from 2-4 AM.',
-            startDate: new Date('2023-07-01'),
-            endDate: new Date('2023-07-02'),
-            type: AnnouncementType.Warning,
-            isActive: true,
-            createdAt: new Date('2023-06-28'),
-            lastUpdated: new Date('2023-06-29')
-        },
-        {
-            id: '2',
-            title: 'New Feature Release',
-            content: 'We have released a new dashboard feature. Check it out!',
-            startDate: new Date('2023-07-10'),
-            endDate: new Date('2023-07-20'),
-            type: AnnouncementType.Information,
-            isActive: true,
-            createdAt: new Date('2023-07-05')
-        },
-        {
-            id: '3',
-            title: 'Security Alert',
-            content: 'Important security update required for all users.',
-            startDate: new Date('2023-06-15'),
-            endDate: new Date('2023-06-30'),
-            type: AnnouncementType.Critical,
-            isActive: false,
-            createdAt: new Date('2023-06-10'),
-            lastUpdated: new Date('2023-06-25')
-        }
-    ]);
+    const [announcements, setAnnouncements] = useState<AnnouncementDto[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     // Form states
     const [createFormData, setCreateFormData] = useState<CreateAnnouncementDto>({
@@ -99,6 +38,25 @@ const AnnouncementManagement = () => {
     const [isCreating, setIsCreating] = useState(false);
     const [isEditing, setIsEditing] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+
+    // Fetch announcements on component mount
+    useEffect(() => {
+        const fetchAnnouncements = async () => {
+            try {
+                setIsLoading(true);
+                const response = await announcementAPI.getAll();
+                setAnnouncements(response.data.data);
+                setError(null);
+            } catch (err) {
+                setError('Failed to fetch announcements. Please try again later.');
+                console.error('Error fetching announcements:', err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchAnnouncements();
+    }, []);
 
     // Handle create form input changes
     const handleCreateInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -148,13 +106,13 @@ const AnnouncementManagement = () => {
         }
 
         if (!createFormData.startDate) {
-            newErrors.startDate = 'Start date is required';
+            //newErrors.startDate = 'Start date is required';
         }
 
         if (!createFormData.endDate) {
-            newErrors.endDate = 'End date is required';
+            // newErrors.endDate = 'End date is required';
         } else if (createFormData.endDate < createFormData.startDate) {
-            newErrors.endDate = 'End date must be after start date';
+            // newErrors.endDate = 'End date must be after start date';
         }
 
         setErrors(prev => ({ ...prev, create: newErrors }));
@@ -174,7 +132,7 @@ const AnnouncementManagement = () => {
         }
 
         if (updateFormData.endDate && updateFormData.startDate && updateFormData.endDate < updateFormData.startDate) {
-            newErrors.endDate = 'End date must be after start date';
+            // newErrors.endDate = 'End date must be after start date';
         }
 
         setErrors(prev => ({ ...prev, update: newErrors }));
@@ -182,96 +140,80 @@ const AnnouncementManagement = () => {
     };
 
     // Handle create form submission
-    const handleCreateSubmit = (e: React.FormEvent) => {
+    const handleCreateSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (validateCreateForm()) {
-            // Log create form data to console
-            console.log('Creating announcement with data:', {
-                ...createFormData,
-                startDate: createFormData.startDate.toISOString(),
-                endDate: createFormData.endDate.toISOString()
-            });
+            try {
+                setIsLoading(true);
+                const response = await announcementAPI.create(createFormData);
+                setAnnouncements(prev => [...prev, response.data]);
 
-            const newAnnouncement: AnnouncementDto = {
-                id: crypto.randomUUID(),
-                title: createFormData.title,
-                content: createFormData.content,
-                startDate: createFormData.startDate,
-                endDate: createFormData.endDate,
-                type: createFormData.type,
-                isActive: new Date() >= createFormData.startDate && new Date() <= createFormData.endDate,
-                createdAt: new Date(),
-                lastUpdated: undefined
-            };
-
-            setAnnouncements(prev => [...prev, newAnnouncement]);
-            setCreateFormData({
-                title: '',
-                content: '',
-                startDate: new Date(),
-                endDate: new Date(Date.now() + 86400000),
-                type: AnnouncementType.Information
-            });
-            setIsCreating(false);
+                setCreateFormData({
+                    title: '',
+                    content: '',
+                    startDate: new Date(),
+                    endDate: new Date(Date.now() + 86400000),
+                    type: AnnouncementType.Information
+                });
+                setIsCreating(false);
+                setError(null);
+            } catch (err) {
+                setError('Failed to create announcement. Please try again.');
+                console.error('Error creating announcement:', err);
+            } finally {
+                setIsLoading(false);
+            }
         }
     };
 
     // Handle update form submission
-    const handleUpdateSubmit = (e: React.FormEvent) => {
+    const handleUpdateSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (validateUpdateForm() && isEditing) {
-            // Log update form data to console
-            console.log('Updating announcement ID:', isEditing, 'with data:', {
-                ...updateFormData,
-                startDate: updateFormData.startDate?.toISOString(),
-                endDate: updateFormData.endDate?.toISOString()
-            });
+            try {
+                setIsLoading(true);
+                const response = await announcementAPI.update(isEditing, updateFormData);
 
-            setAnnouncements(prev => prev.map(announcement => {
-                if (announcement.id === isEditing) {
-                    const updatedData = {
-                        title: updateFormData.title !== undefined ? updateFormData.title : announcement.title,
-                        content: updateFormData.content !== undefined ? updateFormData.content : announcement.content,
-                        startDate: updateFormData.startDate || announcement.startDate,
-                        endDate: updateFormData.endDate || announcement.endDate,
-                        type: updateFormData.type || announcement.type,
-                        isActive: updateFormData.isActive !== undefined ? updateFormData.isActive : announcement.isActive,
-                        lastUpdated: new Date()
-                    };
+                setAnnouncements(prev => prev.map(announcement =>
+                    announcement.id === isEditing ? response.data : announcement
+                ));
 
-                    // Recalculate isActive if dates changed
-                    const isActive = updateFormData.isActive !== undefined ?
-                        updateFormData.isActive :
-                        (new Date() >= updatedData.startDate && new Date() <= updatedData.endDate);
-
-                    return {
-                        ...announcement,
-                        ...updatedData,
-                        isActive
-                    };
-                }
-                return announcement;
-            }));
-
-            setUpdateFormData({
-                title: '',
-                content: '',
-                startDate: undefined,
-                endDate: undefined,
-                type: undefined,
-                isActive: undefined
-            });
-            setIsEditing(null);
+                setUpdateFormData({
+                    title: '',
+                    content: '',
+                    startDate: undefined,
+                    endDate: undefined,
+                    type: undefined,
+                    isActive: undefined
+                });
+                setIsEditing(null);
+                setError(null);
+            } catch (err) {
+                setError('Failed to update announcement. Please try again.');
+                console.error('Error updating announcement:', err);
+            } finally {
+                setIsLoading(false);
+            }
         }
     };
 
     // Delete an announcement
-    const handleDelete = (id: string) => {
-        // Log delete action to console
-        console.log('Deleting announcement with ID:', id);
-        setAnnouncements(prev => prev.filter(announcement => announcement.id !== id));
+    const handleDelete = async (id: string) => {
+        if (window.confirm('Are you sure you want to delete this announcement?')) {
+            try {
+                setIsLoading(true);
+                await announcementAPI.delete(id);
+                setAnnouncements(prev => prev.filter(announcement => announcement.id !== id));
+                setError(null);
+            } catch (err) {
+                setError('Failed to delete announcement. Please try again.');
+                console.error('Error deleting announcement:', err);
+            } finally {
+                setIsLoading(false);
+            }
+        }
     };
 
     // Start editing an announcement
@@ -308,9 +250,9 @@ const AnnouncementManagement = () => {
         switch (type) {
             case AnnouncementType.Information:
                 return { icon: <Info className="h-4 w-4" />, color: 'bg-blue-100 text-blue-800' };
-            case AnnouncementType.Warning:
+            case AnnouncementType.NewArrival:
                 return { icon: <AlertTriangle className="h-4 w-4" />, color: 'bg-yellow-100 text-yellow-800' };
-            case AnnouncementType.Critical:
+            case AnnouncementType.Deal:
                 return { icon: <Megaphone className="h-4 w-4" />, color: 'bg-red-100 text-red-800' };
             default:
                 return { icon: null, color: '' };
@@ -332,11 +274,21 @@ const AnnouncementManagement = () => {
         );
     };
 
+    // Filter announcements based on search term
+    const filteredAnnouncements = announcements.filter(announcement =>
+        announcement.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        announcement.content.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
     return (
         <div className="container mx-auto px-4 py-8">
             <h1 className="text-3xl font-bold mb-8">Announcement Management</h1>
 
-
+            {error && (
+                <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+                    {error}
+                </div>
+            )}
 
             {/* Search and Add Button */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
@@ -353,11 +305,19 @@ const AnnouncementManagement = () => {
                 <button
                     onClick={() => setIsCreating(true)}
                     className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors w-full md:w-auto justify-center"
+                    disabled={isLoading}
                 >
                     <Plus className="h-5 w-5" />
                     <span>Add Announcement</span>
                 </button>
             </div>
+
+            {/* Loading state */}
+            {isLoading && (
+                <div className="flex justify-center items-center p-8">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                </div>
+            )}
 
             {/* Create Announcement Form */}
             {isCreating && (
@@ -367,6 +327,7 @@ const AnnouncementManagement = () => {
                         <button
                             onClick={() => setIsCreating(false)}
                             className="text-gray-500 hover:text-gray-700"
+                            disabled={isLoading}
                         >
                             <X className="h-5 w-5" />
                         </button>
@@ -385,6 +346,7 @@ const AnnouncementManagement = () => {
                                 onChange={handleCreateInputChange}
                                 className={`w-full px-3 py-2 border rounded-md ${errors.create?.title ? 'border-red-500' : 'border-gray-300'}`}
                                 placeholder="Announcement title"
+                                disabled={isLoading}
                             />
                             {errors.create?.title && <p className="mt-1 text-sm text-red-500">{errors.create.title}</p>}
                         </div>
@@ -401,6 +363,7 @@ const AnnouncementManagement = () => {
                                 onChange={handleCreateInputChange}
                                 className={`w-full px-3 py-2 border rounded-md ${errors.create?.content ? 'border-red-500' : 'border-gray-300'}`}
                                 placeholder="Announcement content"
+                                disabled={isLoading}
                             />
                             {errors.create?.content && <p className="mt-1 text-sm text-red-500">{errors.create.content}</p>}
                         </div>
@@ -417,8 +380,9 @@ const AnnouncementManagement = () => {
                                     value={formatDateForInput(createFormData.startDate)}
                                     onChange={handleCreateInputChange}
                                     className={`w-full px-3 py-2 border rounded-md ${errors.create?.startDate ? 'border-red-500' : 'border-gray-300'}`}
+                                    disabled={isLoading}
                                 />
-                                {errors.create?.startDate && <p className="mt-1 text-sm text-red-500">{errors.create.startDate}</p>}
+                                {/* {errors.create?.startDate && <p className="mt-1 text-sm text-red-500">{errors.create.startDate}</p>} */}
                             </div>
 
                             <div>
@@ -432,8 +396,9 @@ const AnnouncementManagement = () => {
                                     value={formatDateForInput(createFormData.endDate)}
                                     onChange={handleCreateInputChange}
                                     className={`w-full px-3 py-2 border rounded-md ${errors.create?.endDate ? 'border-red-500' : 'border-gray-300'}`}
+                                    disabled={isLoading}
                                 />
-                                {errors.create?.endDate && <p className="mt-1 text-sm text-red-500">{errors.create.endDate}</p>}
+                                {/* {errors.create?.endDate && <p className="mt-1 text-sm text-red-500">{errors.create.endDate}</p>} */}
                             </div>
                         </div>
 
@@ -447,28 +412,29 @@ const AnnouncementManagement = () => {
                                 value={createFormData.type}
                                 onChange={handleCreateInputChange}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                disabled={isLoading}
                             >
                                 <option value={AnnouncementType.Information}>Information</option>
-                                <option value={AnnouncementType.Warning}>Warning</option>
-                                <option value={AnnouncementType.Critical}>Critical</option>
+                                <option value={AnnouncementType.NewArrival}>New Arrival</option>
+                                <option value={AnnouncementType.Deal}>Deal</option>
                             </select>
                         </div>
-
-
 
                         <div className="flex justify-end gap-3 pt-2">
                             <button
                                 type="button"
                                 onClick={() => setIsCreating(false)}
                                 className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                                disabled={isLoading}
                             >
                                 Cancel
                             </button>
                             <button
                                 type="submit"
                                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                                disabled={isLoading}
                             >
-                                Create Announcement
+                                {isLoading ? 'Creating...' : 'Create Announcement'}
                             </button>
                         </div>
                     </form>
@@ -484,6 +450,7 @@ const AnnouncementManagement = () => {
                             <button
                                 onClick={() => setIsEditing(null)}
                                 className="text-gray-500 hover:text-gray-700"
+                                disabled={isLoading}
                             >
                                 <X className="h-5 w-5" />
                             </button>
@@ -502,6 +469,7 @@ const AnnouncementManagement = () => {
                                     onChange={handleUpdateInputChange}
                                     className={`w-full px-3 py-2 border rounded-md ${errors.update?.title ? 'border-red-500' : 'border-gray-300'}`}
                                     placeholder="Announcement title"
+                                    disabled={isLoading}
                                 />
                                 {errors.update?.title && <p className="mt-1 text-sm text-red-500">{errors.update.title}</p>}
                             </div>
@@ -518,6 +486,7 @@ const AnnouncementManagement = () => {
                                     onChange={handleUpdateInputChange}
                                     className={`w-full px-3 py-2 border rounded-md ${errors.update?.content ? 'border-red-500' : 'border-gray-300'}`}
                                     placeholder="Announcement content"
+                                    disabled={isLoading}
                                 />
                                 {errors.update?.content && <p className="mt-1 text-sm text-red-500">{errors.update.content}</p>}
                             </div>
@@ -534,8 +503,9 @@ const AnnouncementManagement = () => {
                                         value={updateFormData.startDate ? formatDateForInput(updateFormData.startDate) : ''}
                                         onChange={handleUpdateInputChange}
                                         className={`w-full px-3 py-2 border rounded-md ${errors.update?.startDate ? 'border-red-500' : 'border-gray-300'}`}
+                                        disabled={isLoading}
                                     />
-                                    {errors.update?.startDate && <p className="mt-1 text-sm text-red-500">{errors.update.startDate}</p>}
+                                    {/* {errors.update?.startDate && <p className="mt-1 text-sm text-red-500">{errors.update.startDate}</p>} */}
                                 </div>
 
                                 <div>
@@ -549,8 +519,9 @@ const AnnouncementManagement = () => {
                                         value={updateFormData.endDate ? formatDateForInput(updateFormData.endDate) : ''}
                                         onChange={handleUpdateInputChange}
                                         className={`w-full px-3 py-2 border rounded-md ${errors.update?.endDate ? 'border-red-500' : 'border-gray-300'}`}
+                                        disabled={isLoading}
                                     />
-                                    {errors.update?.endDate && <p className="mt-1 text-sm text-red-500">{errors.update.endDate}</p>}
+                                    {/* {errors.update?.endDate && <p className="mt-1 text-sm text-red-500">{errors.update.endDate}</p>} */}
                                 </div>
                             </div>
 
@@ -565,10 +536,11 @@ const AnnouncementManagement = () => {
                                         value={updateFormData.type || ''}
                                         onChange={handleUpdateInputChange}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                        disabled={isLoading}
                                     >
                                         <option value={AnnouncementType.Information}>Information</option>
-                                        <option value={AnnouncementType.Warning}>Warning</option>
-                                        <option value={AnnouncementType.Critical}>Critical</option>
+                                        <option value={AnnouncementType.NewArrival}>New Arrival</option>
+                                        <option value={AnnouncementType.Deal}>Deal</option>
                                     </select>
                                 </div>
 
@@ -580,6 +552,7 @@ const AnnouncementManagement = () => {
                                         checked={updateFormData.isActive || false}
                                         onChange={handleUpdateInputChange}
                                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                        disabled={isLoading}
                                     />
                                     <label htmlFor="update-is-active" className="ml-2 block text-sm text-gray-700">
                                         Active
@@ -587,21 +560,21 @@ const AnnouncementManagement = () => {
                                 </div>
                             </div>
 
-
-
                             <div className="flex justify-end gap-3 pt-2">
                                 <button
                                     type="button"
                                     onClick={() => setIsEditing(null)}
                                     className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                                    disabled={isLoading}
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                                    disabled={isLoading}
                                 >
-                                    Update Announcement
+                                    {isLoading ? 'Updating...' : 'Update Announcement'}
                                 </button>
                             </div>
                         </form>
@@ -610,19 +583,15 @@ const AnnouncementManagement = () => {
             )}
 
             {/* Announcements List */}
-            <div className="bg-white shadow-md rounded-lg overflow-hidden">
-                {announcements.length === 0 ? (
-                    <div className="p-8 text-center text-gray-500">
-                        No announcements found. Create one to get started!
-                    </div>
-                ) : (
-                    <div className="divide-y divide-gray-200">
-                        {announcements
-                            .filter(announcement =>
-                                announcement.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                announcement.content.toLowerCase().includes(searchTerm.toLowerCase())
-                            )
-                            .map(announcement => (
+            {!isLoading && (
+                <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                    {filteredAnnouncements.length === 0 ? (
+                        <div className="p-8 text-center text-gray-500">
+                            {searchTerm ? 'No announcements match your search.' : 'No announcements found. Create one to get started!'}
+                        </div>
+                    ) : (
+                        <div className="divide-y divide-gray-200">
+                            {filteredAnnouncements.map(announcement => (
                                 <div key={announcement.id} className="p-6 hover:bg-gray-50 transition-colors">
                                     <div className="flex justify-between items-start">
                                         <div>
@@ -640,6 +609,7 @@ const AnnouncementManagement = () => {
                                                 onClick={() => startEditing(announcement)}
                                                 className="text-gray-500 hover:text-blue-600"
                                                 title="Edit"
+                                                disabled={isLoading}
                                             >
                                                 <Edit className="h-5 w-5" />
                                             </button>
@@ -647,6 +617,7 @@ const AnnouncementManagement = () => {
                                                 onClick={() => handleDelete(announcement.id)}
                                                 className="text-gray-500 hover:text-red-600"
                                                 title="Delete"
+                                                disabled={isLoading}
                                             >
                                                 <Trash2 className="h-5 w-5" />
                                             </button>
@@ -675,9 +646,10 @@ const AnnouncementManagement = () => {
                                     </div>
                                 </div>
                             ))}
-                    </div>
-                )}
-            </div>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 };
