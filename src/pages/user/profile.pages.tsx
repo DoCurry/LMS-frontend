@@ -273,6 +273,12 @@ export default function UserProfilePage() {
                 <h3 className="font-medium text-gray-900 mb-4">Account Details</h3>
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between py-2 border-b">
+                    <span className="text-gray-600">Membership ID</span>
+                    <span className="text-gray-900 font-medium">
+                      {user.membershipId}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-2 border-b">
                     <span className="text-gray-600">Member Since</span>
                     <span className="text-gray-900">
                       {new Date(user.createdAt).toLocaleDateString()}
