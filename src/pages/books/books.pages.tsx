@@ -1,500 +1,720 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Search, SlidersHorizontal } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { useDebouncedCallback } from 'use-debounce';
+import { bookAPI } from '@/api/api';
+import { BookDto, BookFilterDto } from '@/models/book.model';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { BookFormat, Genre, Language, getFormatName, getGenreName, getLanguageName, getEnumValues } from '@/models/enums';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "@/components/ui/command"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { Check } from 'lucide-react';
+import { cn } from "@/lib/utils";
 
-import { useState } from 'react';
-import { Heart, Search, ShoppingCart, Menu, X, ChevronDown, ChevronUp, Bookmark } from 'lucide-react';
-import { useForm, Controller } from 'react-hook-form';
-
-interface FilterFormData {
-  searchTerm: string;
-  genre: string[];
-  priceRange: {
-    min: number;
-    max: number;
-  };
-  ratings: string[];
-  language: string[];
-  format: string[];
-  publishers: string[];
-  sortBy: string;
-}
-
-interface Book {
-  id: number;
-  title: string;
-  author: string;
-  price: number;
-  coverImg: string;
-  category: string;
-  format: string;
-  rating: number;
-  year: number;
-  isbn: string;
-  language: string;
-  publisher: string;
-  stock: number;
-  physicalAccess: boolean;
-  description: string;
-  popularity: number;
-}
-
-interface ExpandedSections {
-  categories: boolean;
-  formats: boolean;
-  ratings: boolean;
-  years: boolean;
-  languages: boolean;
-  publishers: boolean;
-  availability: boolean;
-  priceRange: boolean;
-}
-
-interface PriceRange {
-  min: number;
-  max: number;
-}
-
-interface Availability {
-  inStock: boolean;
-  physicalAccess: boolean;
-}
-
-// Sample book data
-const books = [
-  {
-    id: 1,
-    title: "The Midnight Library",
-    author: "Matt Haig",
-    price: 14.99,
-    coverImg: "/api/placeholder/200/300",
-    category: "Fiction",
-    format: "Hardcover",
-    rating: 4.5,
-    year: 2020,
-    isbn: "9780525559474",
-    language: "English",
-    publisher: "Viking",
-    stock: 10,
-    physicalAccess: true,
-    description: "A dazzling novel about all the choices that go into a life well lived.",
-    popularity: 95
-  }
-];
-
-// Filter options
-const genres = ["Fiction", "Non-Fiction", "Self-Help", "Sci-Fi", "Thriller", "Memoir", "Finance", "History", "Biography"];
-const formats = ["Hardcover", "Paperback", "E-Book", "Audiobook", "Signed Edition", "Limited Edition", "First Edition", "Collector's Edition", "Author's Edition", "Deluxe Edition"];
-const ratings = ["5 Stars", "4+ Stars", "3+ Stars"];
-const languages = ["English", "Spanish", "French", "German", "Chinese", "Japanese", "Russian"];
-const publishers = ["Penguin", "HarperCollins", "Random House", "Simon & Schuster", "Macmillan", "Hachette", "Viking"];
 const sortOptions = [
-  { value: "relevance", label: "Relevance" },
-  { value: "title", label: "Title" },
-  { value: "price-asc", label: "Price: Low to High" },
-  { value: "price-desc", label: "Price: High to Low" },
-  { value: "rating", label: "Highest Rated" },
-  { value: "newest", label: "Newest First" },
-  { value: "popularity", label: "Most Popular" }
+  { value: "title-false", label: "Title (A-Z)" },
+  { value: "title-true", label: "Title (Z-A)" },
+  { value: "price-true", label: "Price: High to Low" },
+  { value: "price-false", label: "Price: Low to High" },
+  { value: "date-true", label: "Newest First" },
+  { value: "date-false", label: "Oldest First" },
+  { value: "rating-true", label: "Rating: High to Low" },
+  { value: "rating-false", label: "Rating: Low to High" },
+  { value: "soldCount-true", label: "Most Popular" },
+  { value: "soldCount-false", label: "Least Popular" }
 ];
 
-export default function BookCatalog() {
-  const { control, handleSubmit, watch } = useForm<FilterFormData>({
+function BooksPage() {
+  const navigate = useNavigate();
+  const [books, setBooks] = useState<BookDto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [totalBooks, setTotalBooks] = useState(0);
+  const [filterOpen, setFilterOpen] = useState(false);
+
+  const { register, handleSubmit, watch, setValue } = useForm<BookFilterDto>({
     defaultValues: {
-      searchTerm: '',
-      genre: [],
-      priceRange: {
-        min: 0,
-        max: 100
-      },
-      ratings: [],
-      language: [],
-      format: [],
-      publishers: [],
-      sortBy: 'relevance'
+      pageNumber: 1,
+      pageSize: 12,
+      sortBy: 'title',
+      sortDescending: false
     }
   });
 
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [bookmarkedBooks, setBookmarkedBooks] = useState<number[]>([]);
-  const itemsPerPage = 12;
+  const currentFilters = watch();
 
-  const onSubmit = (data: FilterFormData) => {
-    // Convert the form data into an array of key-value pairs
-    const filterData = Object.entries(data).map(([key, value]) => ({
-      key,
-      value
-    }));
-    console.log('Filter Data:', filterData);
+  // Create a debounced version of fetchBooks
+  const debouncedFetchBooks = useDebouncedCallback(
+    (filters: BookFilterDto) => {
+      fetchBooks(filters);
+    },
+    500// 500ms delay
+  );
+
+  useEffect(() => {
+    debouncedFetchBooks(currentFilters);
+  }, [currentFilters.pageNumber, currentFilters.pageSize]);
+
+  // Add effect for filter changes
+  useEffect(() => {
+    // Initialize base filter data
+    const filterData: BookFilterDto = {
+      pageNumber: currentFilters.pageNumber,
+      pageSize: currentFilters.pageSize,
+      sortBy: currentFilters.sortBy,
+      sortDescending: currentFilters.sortDescending
+    };
+
+    // Add search term if present
+    if (currentFilters.searchTerm?.trim()) {
+      filterData.searchTerm = currentFilters.searchTerm.trim();
+    }
+
+    // Add array filters if they exist and aren't empty
+    if (currentFilters.genres?.length) filterData.genres = currentFilters.genres;
+    if (currentFilters.languages?.length) filterData.languages = currentFilters.languages;
+    if (currentFilters.formats?.length) filterData.formats = currentFilters.formats;
+
+    // Add numeric filters if they're valid numbers
+    if (typeof currentFilters.minRating === 'number') filterData.minRating = currentFilters.minRating;
+    if (typeof currentFilters.minPrice === 'number') filterData.minPrice = currentFilters.minPrice;
+    if (typeof currentFilters.maxPrice === 'number') filterData.maxPrice = currentFilters.maxPrice;
+
+    // Add boolean filters only if they're explicitly true
+    if (currentFilters.hasDiscount === true) filterData.hasDiscount = true;
+    if (currentFilters.isAvailableInLibrary === true) filterData.isAvailableInLibrary = true;
+
+    // Fetch books with the filtered data
+    debouncedFetchBooks(filterData);
+  }, [
+    currentFilters.searchTerm,
+    currentFilters.genres,
+    currentFilters.languages,
+    currentFilters.formats,
+    currentFilters.minRating,
+    currentFilters.hasDiscount,
+    currentFilters.isAvailableInLibrary,
+    currentFilters.minPrice,
+    currentFilters.maxPrice
+  ]);
+
+  const fetchBooks = async (filters: BookFilterDto) => {
+    try {
+      setLoading(true);
+      const response = await bookAPI.filter(filters);
+      if (response.data.data) {
+        setBooks(response.data.data);
+        setTotalBooks(response.data.data.length);
+      } else {
+        setBooks([]);
+        setTotalBooks(0);
+      }
+    } catch (error) {
+      console.error('Error fetching books:', error);
+      setBooks([]);
+      setTotalBooks(0);
+    } finally {
+      setLoading(false);
+    }
+  };  const onFilterSubmit = (data: BookFilterDto) => {
+    // Initialize with required pagination and sorting params
+    const cleanData: Partial<BookFilterDto> = {
+      pageNumber: 1,
+      pageSize: data.pageSize ?? 12,
+      sortBy: data.sortBy ?? 'title',
+      sortDescending: data.sortDescending ?? false
+    };
+
+    // Add non-empty array filters
+    if (data.genres?.length) cleanData.genres = data.genres;
+    if (data.languages?.length) cleanData.languages = data.languages;
+    if (data.formats?.length) cleanData.formats = data.formats;
+
+    // Add numeric filters
+    if (data.minRating) cleanData.minRating = data.minRating;
+    if (data.minPrice) cleanData.minPrice = data.minPrice;
+    if (data.maxPrice) cleanData.maxPrice = data.maxPrice;
+
+    // Add boolean filters only if they are explicitly true
+    if (data.hasDiscount === true) cleanData.hasDiscount = true;
+    if (data.isAvailableInLibrary === true) cleanData.isAvailableInLibrary = true;
+
+    // Ensure required pagination params are always included
+    const filters: BookFilterDto = {
+      pageNumber: 1,
+      pageSize: data.pageSize ?? 12,
+      sortBy: data.sortBy ?? 'title',
+      sortDescending: data.sortDescending ?? false,
+      ...cleanData
+    };
+
+    fetchBooks(filters);
+    setFilterOpen(false);
   };
 
-  // Calculate pagination
-  const totalPages = Math.ceil(books.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentBooks = books.slice(startIndex, endIndex);
-
-  const handleBookmark = (bookId: number) => {
-    setBookmarkedBooks(prev => {
-      if (prev.includes(bookId)) {
-        return prev.filter(id => id !== bookId);
-      } else {
-        return [...prev, bookId];
-      }
+  const handleSortChange = (value: string) => {
+    const [sortBy, sortDescending] = value.split('-');
+    setValue('sortBy', sortBy);
+    setValue('sortDescending', sortDescending === 'true');
+    setValue('pageNumber', 1);
+    fetchBooks({
+      pageNumber: 1,
+      pageSize: 12,
+      sortBy: sortBy ?? 'title',
+      sortDescending: sortDescending === 'true',
     });
-    console.log('Bookmark clicked for book ID:', bookId);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Search Bar */}
-      <div className="bg-gray-100 py-4">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <form onSubmit={handleSubmit(onSubmit)}>
-            <div className="flex gap-4">
-              <Controller
-                name="searchTerm"
-                control={control}
-                render={({ field }) => (
-                  <div className="flex-1">
-                    <div className="relative">
-                      <input
-                        {...field}
-                        type="text"
-                        placeholder="Search by title, author, ISBN, or description..."
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      <div className="absolute inset-y-0 left-0 flex items-center pl-3">
-                        <Search className="h-5 w-5 text-gray-400" />
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex flex-col gap-6">
+        {/* Header Section */}
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Book Catalogue</h1>
+            <p className="text-gray-500">Browse our collection of {totalBooks} books</p>
+          </div>
+
+          <div className="flex gap-2">
+            <div className="relative flex-1 md:w-[300px]">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+              <Input
+                placeholder="Search books..."
+                className="pl-9"
+                {...register('searchTerm')}
+                onChange={(e) => {
+                  register('searchTerm').onChange(e);
+                  debouncedFetchBooks({
+                    ...currentFilters,
+                    searchTerm: e.target.value,
+                    pageNumber: 1
+                  });
+                }}
+              />
+            </div>
+
+            <Select onValueChange={handleSortChange} defaultValue="title-false">
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                {sortOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <SlidersHorizontal className="h-4 w-4" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent className="overflow-y-auto py-4 px-3">
+                <SheetHeader className="border-b pb-4">
+                  <SheetTitle className="text-xl">Filter Books</SheetTitle>
+                </SheetHeader>
+                <div className="py-6 space-y-8">
+                  <form onSubmit={handleSubmit(onFilterSubmit)} className="space-y-8">
+                    {/* Categories Section */}
+                    <div className="space-y-6">
+                      <h3 className="font-semibold text-sm text-gray-900">Categories</h3>
+                      <div className="grid gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-sm text-gray-600">Genre</label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className="w-full justify-start text-left font-normal"
+                              >
+                                <span className="line-clamp-1">
+                                  {currentFilters.genres?.length
+                                    ? `${currentFilters.genres.length} selected`
+                                    : "Select genres"}
+                                </span>
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-full p-0" align="start">
+                              <Command>
+                                <CommandInput placeholder="Search genres..." />
+                                <CommandEmpty>No genre found.</CommandEmpty>
+                                <CommandGroup className="max-h-64 overflow-auto">
+                                  {getEnumValues(Genre).map((genre) => (
+                                    <CommandItem
+                                      key={genre}
+                                      onSelect={() => {
+                                        const currentGenres = currentFilters.genres || [];
+                                        const newGenres = currentGenres.includes(genre)
+                                          ? currentGenres.filter(g => g !== genre)
+                                          : [...currentGenres, genre];
+                                        setValue('genres', newGenres);
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          currentFilters.genres?.includes(genre)
+                                            ? "opacity-100"
+                                            : "opacity-0"
+                                        )}
+                                      />
+                                      {getGenreName(genre)}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-sm text-gray-600">Language</label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className="w-full justify-start text-left font-normal"
+                              >
+                                <span className="line-clamp-1">
+                                  {currentFilters.languages?.length
+                                    ? `${currentFilters.languages.length} selected`
+                                    : "Select languages"}
+                                </span>
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-full p-0" align="start">
+                              <Command>
+                                <CommandInput placeholder="Search languages..." />
+                                <CommandEmpty>No language found.</CommandEmpty>
+                                <CommandGroup className="max-h-64 overflow-auto">
+                                  {getEnumValues(Language).map((language) => (
+                                    <CommandItem
+                                      key={language}
+                                      onSelect={() => {
+                                        const currentLanguages = currentFilters.languages || [];
+                                        const newLanguages = currentLanguages.includes(language)
+                                          ? currentLanguages.filter(l => l !== language)
+                                          : [...currentLanguages, language];
+                                        setValue('languages', newLanguages);
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          currentFilters.languages?.includes(language)
+                                            ? "opacity-100"
+                                            : "opacity-0"
+                                        )}
+                                      />
+                                      {getLanguageName(language)}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-sm text-gray-600">Format</label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className="w-full justify-start text-left font-normal"
+                              >
+                                <span className="line-clamp-1">
+                                  {currentFilters.formats?.length
+                                    ? `${currentFilters.formats.length} selected`
+                                    : "Select formats"}
+                                </span>
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-full p-0" align="start">
+                              <Command>
+                                <CommandInput placeholder="Search formats..." />
+                                <CommandEmpty>No format found.</CommandEmpty>
+                                <CommandGroup className="max-h-64 overflow-auto">
+                                  {getEnumValues(BookFormat).map((format) => (
+                                    <CommandItem
+                                      key={format}
+                                      onSelect={() => {
+                                        const currentFormats = currentFilters.formats || [];
+                                        const newFormats = currentFormats.includes(format)
+                                          ? currentFormats.filter(f => f !== format)
+                                          : [...currentFormats, format];
+                                        setValue('formats', newFormats);
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          currentFilters.formats?.includes(format)
+                                            ? "opacity-100"
+                                            : "opacity-0"
+                                        )}
+                                      />
+                                      {getFormatName(format)}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
                       </div>
                     </div>
+
+                    {/* Additional Filters */}
+                    <div className="space-y-6">
+                      <h3 className="font-semibold text-sm text-gray-900">Additional Filters</h3>
+                      <div className="grid gap-4">
+                        <div className="space-y-1.5">
+                          <label htmlFor="rating-select" className="text-sm text-gray-600">Rating</label>
+                          <Select
+                            onValueChange={(value) => setValue('minRating', Number(value))}
+                            defaultValue={currentFilters.minRating?.toString()}
+                          >
+                            <SelectTrigger id="rating-select" className="w-full">
+                              <SelectValue placeholder="Minimum rating" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {[1, 2, 3, 4, 5].map((rating) => (
+                                <SelectItem key={rating} value={rating.toString()}>
+                                  {rating}+ ★
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-sm text-gray-600">Price Range</label>
+                          <div className="flex items-center gap-4">
+                            <Input                              type="number"
+                              placeholder="Min"
+                              className="w-full"
+                              {...register('minPrice', { 
+                                setValueAs: (value: string) => value === "" ? undefined : parseFloat(value)
+                              })}
+                            />
+                            <span className="text-gray-500">-</span>
+                            <Input
+                              type="number"
+                              placeholder="Max"
+                              className="w-full"
+                              {...register('maxPrice', {
+                                setValueAs: (value: string) => value === "" ? undefined : parseFloat(value)
+                              })}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-4 pt-2">
+                          <label className="flex items-center space-x-2">
+                            <Checkbox
+                              id="hasDiscount"
+                              className="data-[state=checked]:bg-blue-600"
+                              {...register('hasDiscount')}
+                            />
+                            <span className="text-sm text-gray-700">On Sale Only</span>
+                          </label>
+
+                          <label className="flex items-center space-x-2">
+                            <Checkbox
+                              id="isAvailableInLibrary"
+                              className="data-[state=checked]:bg-blue-600"
+                              {...register('isAvailableInLibrary')}
+                            />
+                            <span className="text-sm text-gray-700">Available in Library Only</span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="sticky bottom-0 bg-white pt-4 border-t">
+                      <Button type="submit" className="w-full font-medium">
+                        Apply Filters
+                      </Button>
+                    </div>
+                  </form>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
+        </div>
+
+        {/* Active Filters */}        {/* Active Filters */}
+        {(currentFilters.minPrice ||
+          currentFilters.maxPrice ||
+          currentFilters.genres?.length ||
+          currentFilters.languages?.length ||
+          currentFilters.formats?.length ||
+          currentFilters.minRating ||
+          currentFilters.hasDiscount ||
+          currentFilters.isAvailableInLibrary
+        ) && (
+          <div className="flex flex-wrap gap-2">
+            {currentFilters.genres?.map((genre) => (
+              <Badge
+                key={genre}
+                variant="secondary"
+                className="cursor-pointer hover:bg-gray-200"
+                onClick={() => {
+                  setValue('genres', currentFilters.genres?.filter(g => g !== genre));
+                  handleSubmit(onFilterSubmit)();
+                }}
+              >
+                Genre: {getGenreName(genre)} ×
+              </Badge>
+            ))}
+
+            {currentFilters.languages?.map((language) => (
+              <Badge
+                key={language}
+                variant="secondary"
+                className="cursor-pointer hover:bg-gray-200"
+                onClick={() => {
+                  setValue('languages', currentFilters.languages?.filter(l => l !== language));
+                  handleSubmit(onFilterSubmit)();
+                }}
+              >
+                Language: {getLanguageName(language)} ×
+              </Badge>
+            ))}
+
+            {currentFilters.formats?.map((format) => (
+              <Badge
+                key={format}
+                variant="secondary"
+                className="cursor-pointer hover:bg-gray-200"
+                onClick={() => {
+                  setValue('formats', currentFilters.formats?.filter(f => f !== format));
+                  handleSubmit(onFilterSubmit)();
+                }}
+              >
+                Format: {getFormatName(format)} ×
+              </Badge>
+            ))}
+
+            {currentFilters.minRating && (
+              <Badge
+                variant="secondary"
+                className="cursor-pointer hover:bg-gray-200"
+                onClick={() => {
+                  setValue('minRating', undefined);
+                  handleSubmit(onFilterSubmit)();
+                }}
+              >
+                {currentFilters.minRating}+ ★ ×
+              </Badge>
+            )}
+
+            {currentFilters.minPrice && currentFilters.maxPrice && (
+              <Badge
+                variant="secondary"
+                className="cursor-pointer hover:bg-gray-200"
+                onClick={() => {
+                  setValue('minPrice', undefined);
+                  setValue('maxPrice', undefined);
+                  handleSubmit(onFilterSubmit)();
+                }}
+              >
+                ${currentFilters.minPrice} - ${currentFilters.maxPrice} ×
+              </Badge>
+            )}
+
+            {currentFilters.hasDiscount && (
+              <Badge
+                variant="secondary"
+                className="cursor-pointer hover:bg-gray-200"
+                onClick={() => {
+                  setValue('hasDiscount', false);
+                  handleSubmit(onFilterSubmit)();
+                }}
+              >
+                On Sale Only ×
+              </Badge>
+            )}
+
+            {currentFilters.isAvailableInLibrary && (
+              <Badge
+                variant="secondary"
+                className="cursor-pointer hover:bg-gray-200"
+                onClick={() => {
+                  setValue('isAvailableInLibrary', false);
+                  handleSubmit(onFilterSubmit)();
+                }}
+              >
+                Available in Library Only ×
+              </Badge>
+            )}
+          </div>
+        )}
+
+        {/* Books Grid */}
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {Array(12).fill(0).map((_, i) => (
+              <Card key={i} className="animate-pulse">
+                <CardContent className="p-4">
+                  <div className="aspect-[2/3] bg-gray-200 rounded-md mb-4" />
+                  <div className="h-4 bg-gray-200 rounded mb-2" />
+                  <div className="h-3 bg-gray-200 rounded w-2/3" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : books.length === 0 ? (
+          <div className="text-center py-12">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Books Found</h3>
+            <p className="text-gray-500">Try adjusting your filters or search terms</p>
+            <Button
+              variant="outline"
+              className="mt-4"
+              onClick={() => {
+                setValue('searchTerm', '');
+                setValue('minPrice', undefined);
+                setValue('maxPrice', undefined);
+                setValue('genres', undefined);
+                setValue('languages', undefined);
+                setValue('formats', undefined);
+                setValue('minRating', undefined);
+                setValue('hasDiscount', false);
+                setValue('isAvailableInLibrary', false);
+                setValue('pageNumber', 1);
+                handleSubmit(onFilterSubmit)();
+              }}
+            >
+              Clear All Filters
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {books.map((book) => (
+              <Card
+                key={book.id}
+                className="cursor-pointer group hover:shadow-lg transition-all duration-300 relative overflow-hidden"
+                onClick={() => navigate(`/books/${book.slug}`)}
+              >
+                {book.isOnSale && (
+                  <div className="absolute top-4 left-4 z-10">
+                    <Badge variant="destructive" className="bg-red-500">
+                      {book.discountPercentage}% OFF
+                    </Badge>
                   </div>
                 )}
-              />
-              <button
-                type="submit"
-                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                Search
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex flex-col md:flex-row gap-6">
-          {/* Mobile filter button */}
-          <div className="md:hidden">
-            <button
-              onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
-              className="flex items-center justify-center w-full p-2 bg-blue-600 text-white rounded"
-            >
-              {mobileFiltersOpen ? <X className="h-5 w-5 mr-2" /> : <Menu className="h-5 w-5 mr-2" />}
-              {mobileFiltersOpen ? 'Close Filters' : 'Show Filters'}
-            </button>
-          </div>
-
-          {/* Filters Sidebar */}
-          <div className={`md:w-64 ${mobileFiltersOpen ? 'block' : 'hidden md:block'}`}>
-            <div className="sticky top-4 space-y-4">
-              <h2 className="text-lg font-medium mb-4">Filters</h2>
-
-              {/* Genre Filter */}
-              <div className="border border-gray-200 rounded-md p-3 bg-white">
-                <h3 className="text-md font-medium mb-2">Genre</h3>
-                <Controller
-                  name="genre"
-                  control={control}
-                  render={({ field }) => (
-                    <div className="space-y-2">
-                      {genres.map((genre) => (
-                        <div key={genre} className="flex items-center">
-                          <input
-                            type="checkbox"
-                            id={`genre-${genre}`}
-                            checked={field.value.includes(genre)}
-                            onChange={(e) => {
-                              const newValue = e.target.checked
-                                ? [...field.value, genre]
-                                : field.value.filter(g => g !== genre);
-                              field.onChange(newValue);
-                            }}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                          />
-                          <label htmlFor={`genre-${genre}`} className="ml-2 text-sm text-gray-700">
-                            {genre}
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                />
-              </div>
-
-              {/* Format Filter */}
-              <div className="border border-gray-200 rounded-md p-3 bg-white">
-                <h3 className="text-md font-medium mb-2">Format</h3>
-                <Controller
-                  name="format"
-                  control={control}
-                  render={({ field }) => (
-                    <div className="space-y-2">
-                      {formats.map((format) => (
-                        <div key={format} className="flex items-center">
-                          <input
-                            type="checkbox"
-                            id={`format-${format}`}
-                            checked={field.value.includes(format)}
-                            onChange={(e) => {
-                              const newValue = e.target.checked
-                                ? [...field.value, format]
-                                : field.value.filter(f => f !== format);
-                              field.onChange(newValue);
-                            }}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                          />
-                          <label htmlFor={`format-${format}`} className="ml-2 text-sm text-gray-700">
-                            {format}
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                />
-              </div>
-
-              {/* Price Range */}
-              <div className="border-b border-gray-200 pb-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Price Range</h3>
-                <div className="flex items-center space-x-4">
-                  <Controller
-                    name="priceRange.min"
-                    control={control}
-                    render={({ field }) => (
-                      <input
-                        type="number"
-                        {...field}
-                        min="0"
-                        className="w-24 px-3 py-2 border border-gray-300 rounded-md"
-                        placeholder="Min"
-                      />
-                    )}
-                  />
-                  <span className="text-gray-500">to</span>
-                  <Controller
-                    name="priceRange.max"
-                    control={control}
-                    render={({ field }) => (
-                      <input
-                        type="number"
-                        {...field}
-                        min="0"
-                        className="w-24 px-3 py-2 border border-gray-300 rounded-md"
-                        placeholder="Max"
-                      />
-                    )}
-                  />
-                </div>
-              </div>
-
-              {/* Language Filter */}
-              <div className="border-b border-gray-200 pb-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Language</h3>
-                <div className="space-y-2">
-                  {['English', 'Spanish', 'French', 'German', 'Chinese', 'Japanese'].map((lang) => (
-                    <div key={lang} className="flex items-center">
-                      <Controller
-                        name="language"
-                        control={control}
-                        render={({ field }) => (
-                          <input
-                            type="checkbox"
-                            checked={field.value.includes(lang)}
-                            onChange={(e) => {
-                              const newValue = e.target.checked
-                                ? [...field.value, lang]
-                                : field.value.filter((l) => l !== lang);
-                              field.onChange(newValue);
-                            }}
-                            className="h-4 w-4 text-blue-600 rounded border-gray-300"
-                          />
-                        )}
-                      />
-                      <label className="ml-2 text-sm text-gray-600">{lang}</label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Ratings Filter */}
-              <div className="border-b border-gray-200 pb-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Ratings</h3>
-                <div className="space-y-2">
-                  {['5 Stars', '4 Stars & Up', '3 Stars & Up', '2 Stars & Up', '1 Star & Up'].map((rating) => (
-                    <div key={rating} className="flex items-center">
-                      <Controller
-                        name="ratings"
-                        control={control}
-                        render={({ field }) => (
-                          <input
-                            type="checkbox"
-                            checked={field.value.includes(rating)}
-                            onChange={(e) => {
-                              const newValue = e.target.checked
-                                ? [...field.value, rating]
-                                : field.value.filter((r) => r !== rating);
-                              field.onChange(newValue);
-                            }}
-                            className="h-4 w-4 text-blue-600 rounded border-gray-300"
-                          />
-                        )}
-                      />
-                      <label className="ml-2 text-sm text-gray-600">{rating}</label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Publishers Filter */}
-              <div className="border-b border-gray-200 pb-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Publishers</h3>
-                <div className="space-y-2">
-                  {['Penguin', 'HarperCollins', 'Random House', 'Simon & Schuster', 'Macmillan', 'Hachette'].map((publisher) => (
-                    <div key={publisher} className="flex items-center">
-                      <Controller
-                        name="publishers"
-                        control={control}
-                        render={({ field }) => (
-                          <input
-                            type="checkbox"
-                            checked={field.value.includes(publisher)}
-                            onChange={(e) => {
-                              const newValue = e.target.checked
-                                ? [...field.value, publisher]
-                                : field.value.filter((p) => p !== publisher);
-                              field.onChange(newValue);
-                            }}
-                            className="h-4 w-4 text-blue-600 rounded border-gray-300"
-                          />
-                        )}
-                      />
-                      <label className="ml-2 text-sm text-gray-600">{publisher}</label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Sort Options */}
-              <div className="border border-gray-200 rounded-md p-3 bg-white">
-                <h3 className="text-md font-medium mb-2">Sort By</h3>
-                <Controller
-                  name="sortBy"
-                  control={control}
-                  render={({ field }) => (
-                    <select
-                      {...field}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      {sortOptions.map(option => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Book Grid */}
-          <div className="flex-1">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {currentBooks.map((book) => (
-                <div key={book.id} className="bg-white rounded-lg shadow overflow-hidden hover:shadow-lg transition-shadow duration-300">
-                  <div className="relative">
+                <CardContent className="px-3 py-1">
+                  <div className="aspect-[2/3] relative mb-2 rounded-md overflow-hidden">
                     <img
-                      src={book.coverImg}
+                      src={book.imageUrl || '/placeholder-book.svg'}
                       alt={book.title}
-                      className="w-full h-64 object-cover"
+                      className="absolute inset-0 w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-300"
                     />
-                    <div className="absolute top-2 right-2">
-                      <button
-                        className="p-1 bg-white rounded-full shadow hover:bg-gray-100"
-                        onClick={() => handleBookmark(book.id)}
-                      >
-                        <Bookmark
-                          className={`h-5 w-5 ${bookmarkedBooks.includes(book.id)
-                              ? 'text-blue-600 fill-blue-600'
-                              : 'text-gray-400'
-                            }`}
-                        />
-                      </button>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="absolute bottom-2 left-2 right-2 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">                      <Badge variant="secondary" className="bg-black/50 text-white backdrop-blur-sm">
+                        {getFormatName(book.format)}
+                      </Badge>
+                      {book.isAvailableInLibrary && (
+                        <Badge variant="secondary" className="bg-green-500/50 text-white backdrop-blur-sm">
+                          Library
+                        </Badge>
+                      )}
                     </div>
                   </div>
-                  <div className="p-4">
-                    <h3 className="text-md font-medium text-gray-900 mb-1">{book.title}</h3>
-                    <p className="text-sm text-gray-600 mb-2">{book.author}</p>
-                    <div className="flex items-center mb-2">
-                      <div className="flex text-yellow-400">
-                        {[...Array(5)].map((_, i) => (
-                          <span key={i}>
-                            {i < Math.floor(book.rating) ? '★' : i < book.rating ? '★' : '☆'}
-                          </span>
-                        ))}
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900 line-clamp-1">{book.title}</h3>
+                        <p className="text-xs text-gray-500 line-clamp-1">{book.authors[0]?.name}</p>
                       </div>
-                      <span className="text-xs ml-1 text-gray-500">({book.rating})</span>
+                      <div className="flex items-center gap-1 text-xs text-yellow-500 whitespace-nowrap">
+                        <span className="font-medium">{book.averageRating.toFixed(1)}</span>
+                        <span>★</span>
+                      </div>
                     </div>
+
                     <div className="flex justify-between items-center">
-                      <p className="text-lg font-bold">${book.price.toFixed(2)}</p>
-                      <button className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
-                        Add to Cart
-                      </button>
-                    </div>
-                    <div className="mt-2 text-xs text-gray-500">
-                      <p>ISBN: {book.isbn}</p>
-                      <p>Publisher: {book.publisher}</p>
-                      <p>Language: {book.language}</p>
+                      <div className="flex items-baseline gap-1">
+                        {book.isOnSale ? (
+                          <>
+                            <span className="text-xs text-gray-500 line-through">${book.price.toFixed(2)}</span>
+                            <span className="text-sm font-semibold text-red-600">
+                              ${(book.price * (1 - book.discountPercentage! / 100)).toFixed(2)}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-sm font-semibold text-blue-600">${book.price.toFixed(2)}</span>
+                        )}
+                      </div>
+                      {book.stockQuantity === 0 ? (
+                        <Badge variant="destructive" className="text-[10px]">Out of Stock</Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-[10px]">{book.stockQuantity} Left</Badge>
+                      )}
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
 
-            {/* Pagination */}
-            <div className="mt-8 flex justify-center">
-              <nav className="flex items-center gap-2">
-                <button
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50"
-                >
-                  Previous
-                </button>
-                {[...Array(totalPages)].map((_, index) => (
-                  <button
-                    key={index + 1}
-                    onClick={() => setCurrentPage(index + 1)}
-                    className={`px-3 py-1 rounded ${currentPage === index + 1
-                        ? 'bg-blue-600 text-white'
-                        : 'border border-gray-300'
-                      }`}
-                  >
-                    {index + 1}
-                  </button>
-                ))}
-                <button
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50"
-                >
-                  Next
-                </button>
-              </nav>
+        {/* Pagination */}
+        {totalBooks > currentFilters.pageSize && (
+          <div className="flex justify-center mt-8">
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setValue('pageNumber', currentFilters.pageNumber - 1)}
+                disabled={currentFilters.pageNumber === 1}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setValue('pageNumber', currentFilters.pageNumber + 1)}
+                disabled={currentFilters.pageNumber * currentFilters.pageSize >= totalBooks}
+              >
+                Next
+              </Button>
             </div>
           </div>
-        </div>
-      </main>
+        )}
+      </div>
     </div>
   );
 }
+
+export default BooksPage;

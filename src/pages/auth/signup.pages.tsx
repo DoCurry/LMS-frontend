@@ -1,19 +1,49 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
+import toast from 'react-hot-toast';
 import RegisterImage from '../../assets/register.jpg';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { userAPI } from "@/api/api";
+import { RegisterDto } from "@/models/user.model";
 
 function Signup() {
-    const { register, handleSubmit, formState: { errors }, watch } = useForm();
+    const navigate = useNavigate();
+    const { register, handleSubmit, formState: { errors }, setError } = useForm<RegisterDto>();
 
-    const onSubmit = (data) => {
-        console.log('Signup data:', data);
-        alert('Signup successful! (Frontend-only demo)');
+    const onSubmit = async (data: RegisterDto) => {
+        const registerPromise = userAPI.register(data);
+        
+        try {
+            await toast.promise(registerPromise, {
+                loading: 'Creating your account...',
+                success: 'Registration successful! Redirecting to login...',
+                error: 'Registration failed'
+            });
+            
+            // Short delay before redirect to show success message
+            setTimeout(() => {
+                navigate('/login');
+            }, 1500);
+            
+        } catch (error: any) {
+            // Handle API errors
+            if (error.response?.data?.message) {
+                toast.error(error.response.data.message);
+            } else if (error.response?.status === 400) {
+                const validationErrors = error.response.data.errors;
+                Object.keys(validationErrors).forEach(key => {
+                    setError(key as keyof RegisterDto, {
+                        message: validationErrors[key][0]
+                    });
+                });
+                toast.error('Please check the form for errors');
+            } else {
+                toast.error('Registration failed. Please try again.');
+            }
+        }
     };
-
-    const password = watch('password');
 
     return (
         <div className="flex items-center justify-center min-h-screen w-full bg-gray-50">
@@ -22,19 +52,6 @@ function Signup() {
                 <div className="w-full md:w-1/2 p-6">
                     <h1 className="text-2xl font-bold mb-6">Create an Account</h1>
                     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                        {/* Name Field */}
-                        <div className="space-y-2">
-                            <Label htmlFor="name">Username</Label>
-                            <Input
-                                id="name"
-                                type="text"
-                                placeholder="Enter your name..."
-                                {...register('name', { required: 'Username is required' })}
-                                className="h-10"
-                            />
-                            {errors.name && <p className="text-red-500 text-sm">{errors.name.message}</p>}
-                        </div>
-
                         {/* Email Field */}
                         <div className="space-y-2">
                             <Label htmlFor="email">Email</Label>
@@ -47,11 +64,38 @@ function Signup() {
                                     pattern: {
                                         value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
                                         message: "Invalid email address"
+                                    },
+                                    maxLength: {
+                                        value: 100,
+                                        message: "Email cannot exceed 100 characters"
                                     }
                                 })}
                                 className="h-10"
                             />
                             {errors.email && <p className="text-red-500 text-sm">{errors.email.message}</p>}
+                        </div>
+
+                        {/* Username Field */}
+                        <div className="space-y-2">
+                            <Label htmlFor="username">Username</Label>
+                            <Input
+                                id="username"
+                                type="text"
+                                placeholder="Choose a username..."
+                                {...register('username', { 
+                                    required: 'Username is required',
+                                    minLength: {
+                                        value: 3,
+                                        message: 'Username must be at least 3 characters'
+                                    },
+                                    maxLength: {
+                                        value: 50,
+                                        message: 'Username cannot exceed 50 characters'
+                                    }
+                                })}
+                                className="h-10"
+                            />
+                            {errors.username && <p className="text-red-500 text-sm">{errors.username.message}</p>}
                         </div>
 
                         {/* Password Field */}
@@ -62,10 +106,14 @@ function Signup() {
                                 type="password"
                                 placeholder="Enter your password..."
                                 {...register('password', { 
-                                    required: 'Password is required', 
+                                    required: 'Password is required',
                                     minLength: { 
                                         value: 6, 
-                                        message: 'Password must be at least 6 characters' 
+                                        message: 'Password must be at least 6 characters'
+                                    },
+                                    maxLength: {
+                                        value: 100,
+                                        message: 'Password cannot exceed 100 characters'
                                     }
                                 })}
                                 className="h-10"
@@ -73,23 +121,7 @@ function Signup() {
                             {errors.password && <p className="text-red-500 text-sm">{errors.password.message}</p>}
                         </div>
 
-                        {/* Confirm Password Field */}
-                        <div className="space-y-2">
-                            <Label htmlFor="confirmPassword">Confirm Password</Label>
-                            <Input
-                                id="confirmPassword"
-                                type="password"
-                                placeholder="Confirm your password..."
-                                {...register('confirmPassword', { 
-                                    required: 'Confirm Password is required',
-                                    validate: value => value === password || 'Passwords do not match'
-                                })}
-                                className="h-10"
-                            />
-                            {errors.confirmPassword && <p className="text-red-500 text-sm">{errors.confirmPassword.message}</p>}
-                        </div>
-
-                        {/* Blue Sign Up Button */}
+                        {/* Sign Up Button */}
                         <Button 
                             type="submit"
                             className="w-full h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
@@ -99,7 +131,7 @@ function Signup() {
 
                         <div className="text-center text-sm mt-4">
                             Already have an account?{' '}
-                            <Link to="/signin" className="text-blue-500 hover:underline">
+                            <Link to="/login" className="text-blue-500 hover:underline">
                                 Login here
                             </Link>
                         </div>

@@ -1,67 +1,66 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
-import SigninPage from "../pages/signin/signin.pages";
-import SignupPage from "../pages/signup/signup.pages";
+import SigninPage from "../pages/auth/signin.pages";
+import SignupPage from "../pages/auth/signup.pages";
 import HomeLayout from "../pages/layout/home.layout";
 import AdminLayout from "../pages/layout/admin.layout";
 import ErrorPage from "../pages/error/error.pages";
 import HomePage from "../pages/home/home.pages";
 import BooksPage from "../pages/books/books.pages";
-import AdminLogin from "../pages/admin-dashboard/admin-login.pages"
 import BookDetailsPage from "../pages/books/book-details.pages";
 import BookmarksPage from "../pages/bookmarks/bookmarks.pages";
 import AdminBooksPage from "../pages/admin/books/admin-books.pages";
-import AdminDashboardPage from "@/pages/admin-dashboard/admin-dashboard.pages";
-import AuthorManagement from "@/pages/admin-author/admin-author.pages";
-import PublisherManagement from "@/pages/admin-publisher/admin-publisher.pages";
-import OrderManagement from "@/pages/admin-order/admin-order.pages";
-import AnnouncementManagement from "@/pages/admin-announcement/admin-announcement.pages";
-import { CartPage } from "@/components/Carts/CartPage"
-import ForgetPasswordPage from '@/components/ForgetPasswordPage';
+import AdminDashboardPage from "@/pages/admin/dashboard/admin-dashboard.pages";
+import AuthorManagement from "@/pages/admin/author/admin-author.pages";
+import PublisherManagement from "@/pages/admin/publisher/admin-publisher.pages";
+import OrderManagement from "@/pages/admin/order/admin-order.pages";
+import AnnouncementManagement from "@/pages/admin/announcement/admin-announcement.pages";
+import ForgetPasswordPage from '@/pages/auth/forgot-password.page';
 import StaffPickupPage from '@/components/StaffPickupPage';
+import { PrivateRoute } from "@/components/auth/PrivateRoute";
+import { PublicOnlyRoute } from "@/components/auth/PublicOnlyRoute";
+import UserProfilePage from "@/pages/user/profile.pages";
+import UserOrdersPage from "@/pages/user/orders.pages";
 
 
 function RoutingConfig() {
   return (
+    <BrowserRouter>
+      <Routes>
+        {/* Auth Routes - Only accessible when not logged in */}
+        <Route path="/login" element={<PublicOnlyRoute element={<SigninPage />} />} />
+        <Route path="/sign-up" element={<PublicOnlyRoute element={<SignupPage />} />} />
+        <Route path="/forget-password" element={<PublicOnlyRoute element={<ForgetPasswordPage />} />} />
+          {/* Public Routes */}
+        <Route path="/" element={<HomeLayout />}>
+          <Route index element={<HomePage />} />
+          <Route path="books" element={<BooksPage />} />
+          <Route path="books/:slug" element={<BookDetailsPage />} />
+        </Route>
 
-      <BrowserRouter>
+        {/* Protected User Routes */}
+        <Route path="/" element={<PrivateRoute element={<HomeLayout />} />}>
+          <Route path="bookmarks" element={<BookmarksPage />} />
+          <Route path="profile" element={<UserProfilePage />} />
+          <Route path="orders" element={<UserOrdersPage />} />
+        </Route>
 
-
-        <Routes>
-          <Route path="/signin" element={<SigninPage />}></Route>
-          <Route path="/signup" element={<SignupPage />}></Route>
-          <Route path="admin-login" element={<AdminLogin />}></Route>
-          <Route path="/forget-password" element={<ForgetPasswordPage />} />
-          <Route path="/claim" element={<StaffPickupPage />} />
-
-          <Route path="/cart" element={<CartPage />}></Route>          <Route path="/books" element={<HomeLayout />}>
-            <Route index element={<HomePage />}></Route>
-            <Route path="books" element={<BooksPage />}></Route>
-            <Route path="book-details" element={<BookDetailsPage />}></Route>
-            <Route
-              path="*"
-              element={<ErrorPage title="Back to Homepage" link="/" />}
-            ></Route>
-          </Route>
-          <Route path="/" element={<HomeLayout />}>
-                    <Route index element={<HomePage />} />
-                    <Route path="books" element={<BooksPage />} />
-                    <Route path="book-details" element={<BookDetailsPage />} />
-                    <Route path="bookmarks" element={<BookmarksPage />} />
-                    <Route path="*" element={<ErrorPage title="Back to Homepage" link="/" />} />
-                </Route>
-
-                <Route path="/admin" element={<AdminLayout />}>
-                    <Route index element={<AdminDashboardPage />} />
-                    <Route path="books" element={<AdminBooksPage />} />
-                    <Route path="admin-author" element={<AuthorManagement />} />
-                    <Route path="admin-publisher" element={<PublisherManagement />} />
-                    <Route path="admin-order" element={<OrderManagement />} />
-                    <Route path="admin-announcement" element={<AnnouncementManagement />} />
-                    <Route path="*" element={<ErrorPage title="Back to Dashboard" link="/admin" />} />
-                </Route>
-            </Routes>
-        </BrowserRouter>
-    );
+        {/* Admin Routes */}
+        <Route path="/admin" element={<PrivateRoute element={<AdminLayout />} adminOnly />}>
+          <Route index element={<AdminDashboardPage />} />
+          <Route path="complete-order" element={<StaffPickupPage />} />
+          <Route path="books" element={<AdminBooksPage />} />
+          <Route path="admin-author" element={<AuthorManagement />} />
+          <Route path="admin-publisher" element={<PublisherManagement />} />
+          <Route path="admin-order" element={<OrderManagement />} />
+          <Route path="admin-announcement" element={<AnnouncementManagement />} />
+          <Route path="*" element={<ErrorPage title="Back to Dashboard" link="/admin" />} />
+        </Route>
+        
+        {/* Catch-all route */}
+        <Route path="*" element={<ErrorPage title="Back to Homepage" link="/" />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
 export default RoutingConfig;

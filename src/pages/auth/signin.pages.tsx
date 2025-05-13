@@ -1,25 +1,65 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
+import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { userAPI } from "@/api/api";
+import { LoginDto } from "@/models/user.model";
 import loginImage from '../../assets/login.jpg';
 
 function SigninPage() {
-    const { register, handleSubmit, formState: { errors } } = useForm({
+    const navigate = useNavigate();
+    const location = useLocation();
+    const { register, handleSubmit, formState: { errors } } = useForm<LoginDto>({
         defaultValues: {
             email: '',
             password: ''
         }
     });
 
-    const onSubmit = (data) => {
-        if (!data.email || !data.password) {
-            alert('Email and password are required');
-            return;
+    const onSubmit = async (data: LoginDto) => {
+        const loginPromise = userAPI.login(data);
+        
+        try {
+            const response = await toast.promise(loginPromise, {
+                loading: 'Logging in...',
+                success: 'Welcome back!',
+                error: (err) => {
+                    if (err.response?.status === 401) {
+                        return 'Invalid email or password';
+                    }
+                    if (err.response?.data?.message) {
+                        return err.response.data.message;
+                    }
+                    if (err.message === 'Network Error') {
+                        return 'Unable to connect to the server';
+                    }
+                    return 'Login failed. Please try again.';
+                }
+            });
+
+            // Store the token and refresh token
+            const { token, refreshToken } = response.data.data;
+            localStorage.setItem('authToken', token);
+            localStorage.setItem('refreshToken', refreshToken);
+
+            // Store user info
+            localStorage.setItem('user', JSON.stringify(response.data.data.user));
+            localStorage.setItem('isAdmin', 
+                (response.data.data.user.role === 1).toString()
+            );
+            // Redirect based on role and return path
+            if (response.data.data.user.role === 1 || 2) {
+                navigate('/admin');
+            } else {
+                // Navigate to the return path or home
+                navigate(location.state?.from || '/');
+            }
+            
+        } catch (error) {
+            toast.error('Login error: '+error);
         }
-        console.log('Login attempt:', data);
-        alert('Login submitted. Ready for backend integration.');
     };
 
     return (
@@ -35,8 +75,17 @@ function SigninPage() {
                             <Input
                                 id="email"
                                 type="email"
-                                placeholder="Enter your email..."
-                                {...register('email', { required: 'Email is required' })}
+                                placeholder="Enter your email..."                                {...register('email', { 
+                                    required: 'Email is required',
+                                    pattern: {
+                                        value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                                        message: "Invalid email format"
+                                    },
+                                    maxLength: {
+                                        value: 100,
+                                        message: "Email cannot exceed 100 characters"
+                                    }
+                                })}
                                 className="bg-white border-gray-300 h-10 text-sm"
                             />
                             {errors.email && <p className="text-red-500 text-xs">{errors.email.message}</p>}
@@ -47,8 +96,13 @@ function SigninPage() {
                             <Input
                                 id="password"
                                 type="password"
-                                placeholder="Enter your password..."
-                                {...register('password', { required: 'Password is required' })}
+                                placeholder="Enter your password..."                                {...register('password', { 
+                                    required: 'Password is required',
+                                    minLength: {
+                                        value: 6,
+                                        message: 'Password must be at least 6 characters'
+                                    }
+                                })}
                                 className="bg-white border-gray-300 h-10 text-sm"
                             />
                             {errors.password && <p className="text-red-500 text-xs">{errors.password.message}</p>}
