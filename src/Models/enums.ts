@@ -1,12 +1,5 @@
 // Function to get the display name for an order status
-export const getStatusName = (value: OrderStatus): string => {
-  switch (value) {
-    case OrderStatus.ReadyForPickup:
-      return "Ready for Pickup";
-    default:
-      return OrderStatus[value];
-  }
-};
+// Removed duplicate declaration of getStatusName
 
 export enum Language {
   English,
