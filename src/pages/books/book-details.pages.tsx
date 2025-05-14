@@ -347,17 +347,7 @@ export default function BookDetailsPage() {
               ) : (
                 'Add to Cart'
               )}
-            </Button>
-            <Button 
-              variant="outline"
-              disabled={book.stockQuantity === 0}
-              onClick={() => {
-                handleAddToCart();
-                navigate('/cart');
-              }}
-            >
-              Buy Now
-            </Button>            
+            </Button>           
             {isAuthenticated && (
               <Button
                 variant="ghost"

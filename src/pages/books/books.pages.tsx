@@ -59,6 +59,7 @@ function BooksPage() {
   const [loading, setLoading] = useState(true);
   const [totalBooks, setTotalBooks] = useState(0);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [activeCategory, setActiveCategory] = useState<'all' | 'best-sellers' | 'new-releases' | 'new-arrivals' | 'coming-soon' | 'deals'>('all');
 
   const { register, handleSubmit, watch, setValue } = useForm<BookFilterDto>({
     defaultValues: {
@@ -85,13 +86,41 @@ function BooksPage() {
 
   // Add effect for filter changes
   useEffect(() => {
-    // Initialize base filter data
     const filterData: BookFilterDto = {
       pageNumber: currentFilters.pageNumber,
       pageSize: currentFilters.pageSize,
       sortBy: currentFilters.sortBy,
       sortDescending: currentFilters.sortDescending
     };
+
+    // Add category-specific filters
+    if (activeCategory === 'best-sellers') {
+      filterData.sortBy = 'soldCount';
+      filterData.sortDescending = true;
+    } else if (activeCategory === 'new-releases') {
+      filterData.sortBy = 'publicationDate';
+      filterData.sortDescending = true;
+      // Books released in the last 30 days
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      filterData.minPublicationDate = thirtyDaysAgo.toISOString();
+    } else if (activeCategory === 'new-arrivals') {
+      filterData.sortBy = 'createdAt';
+      filterData.sortDescending = true;
+    } else if (activeCategory === 'coming-soon') {
+      filterData.sortBy = 'publicationDate';
+      filterData.sortDescending = true;
+      // Books that will be released in the next 30 days
+      const today = new Date();
+      const thirtyDaysLater = new Date();
+      thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30);
+      filterData.minPublicationDate = today.toISOString();
+      filterData.maxPublicationDate = thirtyDaysLater.toISOString();
+    } else if (activeCategory === 'deals') {
+      filterData.hasDiscount = true;
+      filterData.sortBy = 'discountPercentage';
+      filterData.sortDescending = true;
+    }
 
     // Add search term if present
     if (currentFilters.searchTerm?.trim()) {
@@ -123,7 +152,8 @@ function BooksPage() {
     currentFilters.hasDiscount,
     currentFilters.isAvailableInLibrary,
     currentFilters.minPrice,
-    currentFilters.maxPrice
+    currentFilters.maxPrice,
+    activeCategory
   ]);
 
   const fetchBooks = async (filters: BookFilterDto) => {
@@ -181,15 +211,18 @@ function BooksPage() {
   };
 
   const handleSortChange = (value: string) => {
+    if (activeCategory !== 'all') {
+      setActiveCategory('all');
+    }
     const [sortBy, sortDescending] = value.split('-');
     setValue('sortBy', sortBy);
     setValue('sortDescending', sortDescending === 'true');
     setValue('pageNumber', 1);
     fetchBooks({
-      pageNumber: 1,
-      pageSize: 12,
-      sortBy: sortBy ?? 'title',
+      ...currentFilters,
+      sortBy,
       sortDescending: sortDescending === 'true',
+      pageNumber: 1
     });
   };
 
@@ -203,7 +236,47 @@ function BooksPage() {
             <p className="text-gray-500">Browse our collection of {totalBooks} books</p>
           </div>
 
-          <div className="flex gap-2">
+          {/* Category Tabs */}
+          <div className="flex flex-wrap gap-2 w-full md:w-auto order-3 md:order-none">
+            <Button
+              variant={activeCategory === 'all' ? 'default' : 'outline'}
+              onClick={() => setActiveCategory('all')}
+            >
+              All Books
+            </Button>
+            <Button
+              variant={activeCategory === 'best-sellers' ? 'default' : 'outline'}
+              onClick={() => setActiveCategory('best-sellers')}
+            >
+              Best Sellers
+            </Button>
+            <Button
+              variant={activeCategory === 'new-releases' ? 'default' : 'outline'}
+              onClick={() => setActiveCategory('new-releases')}
+            >
+              New Releases
+            </Button>
+            <Button
+              variant={activeCategory === 'new-arrivals' ? 'default' : 'outline'}
+              onClick={() => setActiveCategory('new-arrivals')}
+            >
+              New Arrivals
+            </Button>
+            <Button
+              variant={activeCategory === 'coming-soon' ? 'default' : 'outline'}
+              onClick={() => setActiveCategory('coming-soon')}
+            >
+              Coming Soon
+            </Button>
+            <Button
+              variant={activeCategory === 'deals' ? 'default' : 'outline'}
+              onClick={() => setActiveCategory('deals')}
+            >
+              Deals
+            </Button>
+          </div>
+
+          <div className="flex gap-2 order-2 md:order-none">
             <div className="relative flex-1 md:w-[300px]">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
               <Input
