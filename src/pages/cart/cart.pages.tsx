@@ -7,7 +7,6 @@ import { CartDto, CartItemDto, CartSummaryDto } from '@/models/cart.model';
 import { useDebouncedCallback } from 'use-debounce';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,

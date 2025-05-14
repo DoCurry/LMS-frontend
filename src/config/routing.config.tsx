@@ -16,7 +16,7 @@ import PublisherManagement from "@/pages/admin/publisher/admin-publisher.pages";
 import OrderManagement from "@/pages/admin/order/admin-order.pages";
 import AnnouncementManagement from "@/pages/admin/announcement/admin-announcement.pages";
 import ForgetPasswordPage from '@/pages/auth/forgot-password.page';
-import StaffPickupPage from '@/components/StaffPickupPage';
+import CompleteOrderPage from '@/pages/admin/complete-order/complete-order.pages';
 import { PrivateRoute } from "@/components/auth/PrivateRoute";
 import { PublicOnlyRoute } from "@/components/auth/PublicOnlyRoute";
 import UserProfilePage from "@/pages/user/profile.pages";
@@ -51,12 +51,12 @@ function RoutingConfig() {
         {/* Admin Routes */}
         <Route path="/admin" element={<PrivateRoute element={<AdminLayout />} adminOnly />}>
           <Route index element={<AdminDashboardPage />} />
-          <Route path="complete-order" element={<StaffPickupPage />} />
+          <Route path="complete-order" element={<CompleteOrderPage />} />
           <Route path="books" element={<AdminBooksPage />} />
-          <Route path="admin-author" element={<AuthorManagement />} />
-          <Route path="admin-publisher" element={<PublisherManagement />} />
-          <Route path="admin-order" element={<OrderManagement />} />
-          <Route path="admin-announcement" element={<AnnouncementManagement />} />
+          <Route path="author" element={<AuthorManagement />} />
+          <Route path="publisher" element={<PublisherManagement />} />
+          <Route path="order" element={<OrderManagement />} />
+          <Route path="announcement" element={<AnnouncementManagement />} />
           <Route path="*" element={<ErrorPage title="Back to Dashboard" link="/admin" />} />
         </Route>
         

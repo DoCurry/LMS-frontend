@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Bookmark, BookMarked } from 'lucide-react';
-import { getFormatName, getLanguageName, getGenreName } from '@/models/enums';
+import { getFormatName } from '@/models/enums';
 import { Rating } from '@/components/rating';
 
 export default function BookmarksPage() {
