@@ -172,13 +172,21 @@ export default function AdminBooksPage() {
       toast.error('Failed to load authors and publishers');
     }
   };
-  const handleAddBook = async (data: CreateBookDto) => {
-    try {
+  const handleAddBook = async (data: CreateBookDto) => {    try {
+      // First create a copy of data without the fields we want to modify
+      const { publicationDate, price, stockQuantity, language, format, genre, ...rest } = data;
+      
       // Convert local date to UTC
-      const utcDate = new Date(data.publicationDate);
+      const utcDate = new Date(publicationDate);
+      
       const bookData = {
-        ...data,
+        ...rest,
         publicationDate: utcDate.toISOString(),
+        price: Number(price),
+        stockQuantity: Number(stockQuantity),
+        language: parseInt(language as string),
+        format: parseInt(format as string),
+        genre: parseInt(genre as string)
       };
 
       await bookAPI.create(JSON.stringify(bookData), selectedImage);

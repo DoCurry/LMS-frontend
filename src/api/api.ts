@@ -35,6 +35,7 @@ export const userAPI = {
   getById: (id: string) => api.get(`/api/user/${id}`),
   getByEmail: (email: string) => api.get(`/api/user/email/${email}`),
   update: (id: string, data: UpdateUserDto) => api.put(`/api/user/${id}`, data),
+  updateRole: (id: string, role: number) => api.patch(`/api/user/${id}/role`, role),
   activate: (id: string) => api.post(`/api/user/${id}/activate`),
   deactivate: (id: string) => api.post(`/api/user/${id}/deactivate`),
   delete: (id: string) => api.delete(`/api/user/${id}`),

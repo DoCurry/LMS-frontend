@@ -17,6 +17,8 @@ import OrderManagement from "@/pages/admin/order/admin-order.pages";
 import AnnouncementManagement from "@/pages/admin/announcement/admin-announcement.pages";
 import ForgetPasswordPage from '@/pages/auth/forgot-password.page';
 import CompleteOrderPage from '@/pages/admin/complete-order/complete-order.pages';
+import { StaffRoute } from "@/components/auth/StaffRoute";
+import UserManagement from "@/pages/admin/user/admin-user.pages";
 import { PrivateRoute } from "@/components/auth/PrivateRoute";
 import { PublicOnlyRoute } from "@/components/auth/PublicOnlyRoute";
 import UserProfilePage from "@/pages/user/profile.pages";
@@ -46,20 +48,21 @@ function RoutingConfig() {
           <Route path="profile" element={<UserProfilePage />} />
           <Route path="orders" element={<UserOrdersPage />} />
           <Route path="orders/:orderId" element={<OrderDetailsPage />} />
-        </Route>
-
-        {/* Admin Routes */}
-        <Route path="/admin" element={<PrivateRoute element={<AdminLayout />} adminOnly />}>
-          <Route index element={<AdminDashboardPage />} />
+        </Route>        {/* Admin/Staff Routes */}
+        <Route path="/admin" element={<StaffRoute element={<AdminLayout />} />}>
+          {/* Admin-only routes */}
+          <Route index element={<PrivateRoute element={<AdminDashboardPage />} adminOnly />} />
+          <Route path="books" element={<PrivateRoute element={<AdminBooksPage />} adminOnly />} />
+          <Route path="author" element={<PrivateRoute element={<AuthorManagement />} adminOnly />} />
+          <Route path="publisher" element={<PrivateRoute element={<PublisherManagement />} adminOnly />} />
+          <Route path="announcement" element={<PrivateRoute element={<AnnouncementManagement />} adminOnly />} />
+          <Route path="user" element={<PrivateRoute element={<UserManagement />} adminOnly />} />
+          
+          {/* Staff-accessible route */}
           <Route path="complete-order" element={<CompleteOrderPage />} />
-          <Route path="books" element={<AdminBooksPage />} />
-          <Route path="author" element={<AuthorManagement />} />
-          <Route path="publisher" element={<PublisherManagement />} />
-          <Route path="order" element={<OrderManagement />} />
-          <Route path="announcement" element={<AnnouncementManagement />} />
+          
           <Route path="*" element={<ErrorPage title="Back to Dashboard" link="/admin" />} />
         </Route>
-        
         {/* Catch-all route */}
         <Route path="*" element={<ErrorPage title="Back to Homepage" link="/" />} />
       </Routes>

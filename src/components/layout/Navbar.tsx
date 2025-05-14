@@ -45,6 +45,7 @@ export function Navbar() {
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
     localStorage.removeItem('isAdmin');
+    localStorage.removeItem('isStaff');
     window.location.reload();
   };
 

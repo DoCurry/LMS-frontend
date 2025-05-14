@@ -40,6 +40,7 @@ export interface ResetPasswordDto {
 export interface UpdateUserDto {
   username?: string;
   email?: string;
+  role?: UserRole;
 }
 
 export interface ChangePasswordDto {

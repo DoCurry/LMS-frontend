@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { orderAPI } from '@/api/api';
 import { OrderStatus, getStatusName } from '@/models/enums';
+import { OrderDto } from '@/models/order.model';
 import { Search, CircleDollarSign, Calendar, PackageCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
@@ -25,35 +26,9 @@ interface CompleteOrderDto {
   membershipId: string;
 }
 
-interface OrderDetailsDto {
-  id: string;
-  claimCode: string;
-  orderDate: Date;
-  status: OrderStatus;
-  subTotal: number;
-  discountAmount: number;
-  finalTotal: number;
-  isCancelled: boolean;
-  items: {
-    id: string;
-    book: {
-      title: string;
-      isbn: string;
-      imageUrl?: string;
-    };
-    quantity: number;
-    priceAtTime: number;
-    discountAtTime?: number;
-  }[];
-  user: {
-    name: string;
-    email: string;
-  };
-}
-
 export default function CompleteOrderPage() {
   const [loading, setLoading] = useState(false);
-  const [order, setOrder] = useState<OrderDetailsDto | null>(null);
+  const [order, setOrder] = useState<OrderDto | null>(null);
 
   const claimForm = useForm<OrderClaimDto>();
   const completeForm = useForm<CompleteOrderDto>();
@@ -81,7 +56,7 @@ export default function CompleteOrderPage() {
       completeForm.reset();
     } catch (error: any) {
       console.error('Error completing order:', error);
-      toast.error(error?.response?.data?.message || 'Failed to complete order. Please try again.');
+      toast.error(error?.response?.data?.error || 'Failed to complete order. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -144,36 +119,31 @@ export default function CompleteOrderPage() {
               </div>
               <div>
                 <span className="text-sm text-gray-500">Customer:</span>
-                <div>{order.user.name}</div>
+                <div>{order.user.username}</div>
                 <div className="text-sm text-gray-500">{order.user.email}</div>
               </div>
             </div>
 
             {/* Order Items */}
             <div className="divide-y">
-              {order.items.map((item) => (
-                <div key={item.id} className="py-4 flex gap-4">
-                  {item.book.imageUrl && (
-                    <img 
-                      src={item.book.imageUrl} 
-                      alt={item.book.title}
-                      className="h-16 w-12 object-cover rounded"
-                    />
-                  )}
-                  <div className="flex-1">
-                    <div className="font-medium">{item.book.title}</div>
-                    <div className="text-sm text-gray-500">ISBN: {item.book.isbn}</div>
-                    <div className="text-sm text-gray-500">Qty: {item.quantity}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-medium">
-                      ${(item.quantity * (item.priceAtTime - (item.discountAtTime || 0))).toFixed(2)}
+              {order.orderItems.map((item) => (
+                <div key={item.id} className="py-4">
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1">
+                      <div className="font-medium">{item.book.title}</div>
+                      <div className="text-sm text-gray-500">ISBN: {item.book.isbn}</div>
+                      <div className="text-sm text-gray-500">Qty: {item.quantity}</div>
                     </div>
-                    {item.discountAtTime && (
-                      <div className="text-sm text-gray-500 line-through">
-                        ${(item.quantity * item.priceAtTime).toFixed(2)}
+                    <div className="text-right">
+                      <div className="font-medium">
+                        ${(item.quantity * (item.priceAtTime - (item.discountAtTime || 0))).toFixed(2)}
                       </div>
-                    )}
+                      {item.discountAtTime && (
+                        <div className="text-sm text-gray-500 line-through">
+                          ${(item.quantity * item.priceAtTime).toFixed(2)}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

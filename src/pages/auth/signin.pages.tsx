@@ -40,18 +40,17 @@ function SigninPage() {
             });
 
             // Store the token and refresh token
-            const { token, refreshToken } = response.data.data;
-            localStorage.setItem('authToken', token);
+            const { token, refreshToken } = response.data.data;            localStorage.setItem('authToken', token);
             localStorage.setItem('refreshToken', refreshToken);
 
             // Store user info
             localStorage.setItem('user', JSON.stringify(response.data.data.user));
-            localStorage.setItem('isAdmin', 
-                (response.data.data.user.role === 1).toString()
-            );
+            localStorage.setItem('isAdmin', (response.data.data.user.role === 1).toString());
+            localStorage.setItem('isStaff', (response.data.data.user.role === 2).toString());
+            
             // Redirect based on role and return path
-            if (response.data.data.user.role === 1 || 2) {
-                navigate('/admin');
+            if (response.data.data.user.role === 1 || response.data.data.user.role === 2) {
+                navigate('/admin/complete-order'); // Staff users only see complete-order page initially
             } else {
                 // Navigate to the return path or home
                 navigate(location.state?.from || '/');
