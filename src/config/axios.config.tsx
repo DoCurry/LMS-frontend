@@ -1,12 +1,16 @@
-import axios from 'axios';
+import axios, { AxiosRequestConfig } from 'axios';
+import qs from 'qs';
 
 // Create an Axios instance
 const api = axios.create({
   baseURL: 'https://s9w1h85w-5173.inc1.devtunnels.ms', 
-  timeout: 10000, // Optional: set a timeout for requests (in ms)
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   },
+  paramsSerializer: (params: any) => {
+    return qs.stringify(params, { arrayFormat: 'repeat' });
+  }
 });
 
 // Optional: Add interceptors (for auth tokens, error handling, etc.)

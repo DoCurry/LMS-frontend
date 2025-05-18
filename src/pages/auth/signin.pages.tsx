@@ -122,7 +122,7 @@ function SigninPage() {
 
                         <div className="text-center mt-2 text-xs">
                             <span>Doesn't have an account? </span>
-                            <Link to="/signup" className="text-blue-500 hover:underline">Signup</Link>
+                            <Link to="/sign-up" className="text-blue-500 hover:underline">Signup</Link>
                         </div>
                     </form>
                 </div>

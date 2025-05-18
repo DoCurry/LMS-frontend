@@ -103,7 +103,6 @@ function BooksPage() {
       // Books released in the last 30 days
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      filterData.minPublicationDate = thirtyDaysAgo.toISOString();
     } else if (activeCategory === 'new-arrivals') {
       filterData.sortBy = 'createdAt';
       filterData.sortDescending = true;
@@ -114,8 +113,6 @@ function BooksPage() {
       const today = new Date();
       const thirtyDaysLater = new Date();
       thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30);
-      filterData.minPublicationDate = today.toISOString();
-      filterData.maxPublicationDate = thirtyDaysLater.toISOString();
     } else if (activeCategory === 'deals') {
       filterData.hasDiscount = true;
       filterData.sortBy = 'discountPercentage';
@@ -191,11 +188,9 @@ function BooksPage() {
     // Add numeric filters
     if (data.minRating) cleanData.minRating = data.minRating;
     if (data.minPrice) cleanData.minPrice = data.minPrice;
-    if (data.maxPrice) cleanData.maxPrice = data.maxPrice;
-
-    // Add boolean filters only if they are explicitly true
-    if (data.hasDiscount === true) cleanData.hasDiscount = true;
-    if (data.isAvailableInLibrary === true) cleanData.isAvailableInLibrary = true;
+    if (data.maxPrice) cleanData.maxPrice = data.maxPrice;    // Always include boolean filters with their explicit values
+    cleanData.hasDiscount = data.hasDiscount || false;
+    cleanData.isAvailableInLibrary = data.isAvailableInLibrary || false;
 
     // Ensure required pagination params are always included
     const filters: BookFilterDto = {
@@ -514,12 +509,15 @@ function BooksPage() {
                           </div>
                         </div>
 
-                        <div className="space-y-4 pt-2">
-                          <label className="flex items-center space-x-2">
+                        <div className="space-y-4 pt-2">                          <label className="flex items-center space-x-2">
                             <Checkbox
                               id="hasDiscount"
                               className="data-[state=checked]:bg-blue-600"
-                              {...register('hasDiscount')}
+                              checked={currentFilters.hasDiscount || false}
+                              onCheckedChange={(checked) => {
+                                setValue('hasDiscount', checked || false);
+                                handleSubmit(onFilterSubmit)();
+                              }}
                             />
                             <span className="text-sm text-gray-700">On Sale Only</span>
                           </label>
@@ -528,7 +526,11 @@ function BooksPage() {
                             <Checkbox
                               id="isAvailableInLibrary"
                               className="data-[state=checked]:bg-blue-600"
-                              {...register('isAvailableInLibrary')}
+                              checked={currentFilters.isAvailableInLibrary || false}
+                              onCheckedChange={(checked) => {
+                                setValue('isAvailableInLibrary', checked || false);
+                                handleSubmit(onFilterSubmit)();
+                              }}
                             />
                             <span className="text-sm text-gray-700">Available in Library Only</span>
                           </label>

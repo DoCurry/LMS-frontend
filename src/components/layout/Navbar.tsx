@@ -7,10 +7,27 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, User, LogOut, BookMarked, ClipboardList, Bell } from "lucide-react";
+import { 
+  ShoppingCart, User, LogOut, BookMarked, ClipboardList, Bell,
+  TagIcon, BookOpen, Info, MessageSquare 
+} from "lucide-react";
 import { useState, useEffect } from "react";
 import { announcementAPI } from "@/api/api";
 import { AnnouncementDto } from "@/models/announcement.model";
+import { AnnouncementType } from "@/models/enums";
+
+const getAnnouncementIcon = (type: AnnouncementType) => {
+  switch (type) {
+    case AnnouncementType.Deal:
+      return <TagIcon className="h-4 w-4 text-green-400" />;
+    case AnnouncementType.NewArrival:
+      return <BookOpen className="h-4 w-4 text-blue-400" />;
+    case AnnouncementType.Information:
+      return <Info className="h-4 w-4 text-gray-400" />;
+    default:
+      return <MessageSquare className="h-4 w-4 text-gray-400" />;
+  }
+};
 
 export function Navbar() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -101,7 +118,10 @@ export function Navbar() {
                         key={announcement.id}
                         className="group border-b border-gray-700/30 last:border-0 pb-3 last:pb-0 hover:bg-gray-700/20 transition-all duration-200 px-2 -mx-2 rounded-md"
                       >
-                        <h4 className="text-sm font-medium text-gray-200 group-hover:text-white transition-colors">{announcement.title}</h4>
+                        <div className="flex items-center gap-2 mb-1">
+                          {getAnnouncementIcon(announcement.type)}
+                          <h4 className="text-sm font-medium text-gray-200 group-hover:text-white transition-colors">{announcement.title}</h4>
+                        </div>
                         <p className="text-sm text-gray-400 group-hover:text-gray-300 line-clamp-2 transition-colors">{announcement.content}</p>
                         <time className="text-xs text-gray-500 group-hover:text-gray-400 transition-colors">
                           {new Date(announcement.createdAt).toLocaleDateString()}

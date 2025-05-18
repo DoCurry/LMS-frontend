@@ -39,6 +39,7 @@ export default function BookDetailsPage() {
     handleSubmit,
     setValue,
     reset,
+    watch,
     formState: { isSubmitting }
   } = useForm<CreateReviewDto>({
     defaultValues: {
@@ -399,7 +400,7 @@ export default function BookDetailsPage() {
                 <Label>Rating</Label>
                 <Rating
                   className="mt-1"
-                  rating={5}
+                  rating={watch("rating") || 0}
                   readOnly={false}
                   onChange={(rating) => setValue("rating", rating)}
                 />
